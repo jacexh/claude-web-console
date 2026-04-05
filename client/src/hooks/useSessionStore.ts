@@ -21,6 +21,7 @@ type SessionAction =
   | { type: 'SET_LOADING'; sessionId: string; loading: boolean }
   | { type: 'REMOVE_SESSION'; sessionId: string }
   | { type: 'SET_SESSION_STATUS'; sessionId: string; status: 'idle' | 'running' }
+  | { type: 'RENAME_SESSION'; sessionId: string; title: string }
 
 function reducer(state: SessionState, action: SessionAction): SessionState {
   switch (action.type) {
@@ -174,6 +175,15 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
       }
     }
 
+    case 'RENAME_SESSION': {
+      return {
+        ...state,
+        sessions: state.sessions.map((s) =>
+          s.sessionId === action.sessionId ? { ...s, summary: action.title } : s,
+        ),
+      }
+    }
+
     default:
       return state
   }
@@ -234,6 +244,10 @@ export function useSessionStore() {
     dispatch({ type: 'SET_SESSION_STATUS', sessionId, status })
   }, [])
 
+  const renameSession = useCallback((sessionId: string, title: string) => {
+    dispatch({ type: 'RENAME_SESSION', sessionId, title })
+  }, [])
+
   return {
     ...state,
     setSessions,
@@ -247,5 +261,6 @@ export function useSessionStore() {
     sessionEnd,
     removeSession,
     setSessionStatus,
+    renameSession,
   }
 }

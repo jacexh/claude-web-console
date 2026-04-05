@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Plus, Zap, ChevronsLeft, HelpCircle, Settings, ChevronLeft, ChevronRight, Search, Square } from "lucide-react"
+import { Plus, Zap, ChevronsLeft, HelpCircle, Settings, ChevronLeft, ChevronRight, Search, Square, Pencil } from "lucide-react"
 import type { SessionInfo } from "../types"
 
 const PAGE_SIZE = 20
@@ -15,6 +15,7 @@ interface SessionListProps {
   connected: boolean
   onToggleCollapse: () => void
   onClose: (sessionId: string) => void
+  onRename: (sessionId: string, title: string) => void
 }
 
 /** Group sessions by date bucket (already sorted by time) */
@@ -38,10 +39,13 @@ function groupByDate(sessions: SessionInfo[]): { label: string; items: SessionIn
   return groups
 }
 
-export function SessionList({ sessions, activeSessionId, onSelect, onCreate, connected, onToggleCollapse, onClose }: SessionListProps) {
+export function SessionList({ sessions, activeSessionId, onSelect, onCreate, connected, onToggleCollapse, onClose, onRename }: SessionListProps) {
   const [page, setPage] = useState(0)
   const [jumpId, setJumpId] = useState("")
   const [showJump, setShowJump] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const editInputRef = useRef<HTMLInputElement>(null)
 
   // Sort by lastModified descending
   const sorted = [...sessions].sort((a, b) => b.lastModified - a.lastModified)
@@ -141,10 +145,11 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
             <div className="flex flex-col px-2 gap-1">
               {group.items.map((session) => {
                 const isActive = session.sessionId === activeSessionId
+                const isEditing = editingId === session.sessionId
                 return (
                   <div
                     key={session.sessionId}
-                    onClick={() => onSelect(session.sessionId)}
+                    onClick={() => !isEditing && onSelect(session.sessionId)}
                     className={cn(
                       "px-3 py-2 rounded-lg cursor-pointer transition-colors group relative",
                       isActive
@@ -152,12 +157,37 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
                         : "hover:bg-slate-50"
                     )}
                   >
-                    <div className={cn(
-                      "text-sm font-medium truncate",
-                      isActive ? "text-primary" : "text-slate-700"
-                    )}>
-                      {session.summary}
-                    </div>
+                    {isEditing ? (
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        defaultValue={session.summary}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = e.currentTarget.value.trim()
+                            if (val) onRename(session.sessionId, val)
+                            setEditingId(null)
+                          } else if (e.key === 'Escape') {
+                            setEditingId(null)
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = e.currentTarget.value.trim()
+                          if (val) onRename(session.sessionId, val)
+                          setEditingId(null)
+                        }}
+                        className="w-full text-sm font-medium bg-white border border-primary rounded px-1.5 py-0.5 outline-none text-slate-700 focus:ring-1 focus:ring-primary"
+                      />
+                    ) : (
+                      <div className={cn(
+                        "text-sm font-medium truncate pr-6",
+                        isActive ? "text-primary" : "text-slate-700"
+                      )}>
+                        {session.summary}
+                      </div>
+                    )}
                     <div className={cn(
                       "text-xs font-mono mt-0.5 flex items-center gap-1",
                       isActive ? "text-primary/60" : "text-slate-400"
@@ -167,7 +197,20 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
                       )}
                       ID: {session.sessionId.slice(0, 8)}
                     </div>
-                    {session.status === 'running' && (
+                    {!isEditing && session.status !== 'running' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingId(session.sessionId)
+                          setEditTitle(session.summary)
+                        }}
+                        className="absolute top-2 right-2 p-1 rounded text-slate-300 hover:text-primary hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Rename session"
+                      >
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                    )}
+                    {!isEditing && session.status === 'running' && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onClose(session.sessionId) }}
                         className="absolute top-2 right-2 p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"

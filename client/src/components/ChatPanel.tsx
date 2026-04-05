@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Monitor, Paperclip, ArrowUp, HelpCircle } from "lucide-react"
+import { Send, MessageSquare, Monitor, Paperclip, ArrowUp, HelpCircle, Pencil } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -28,6 +28,7 @@ interface ChatPanelProps {
   fileList: FileEntry[]
   onRequestFiles: (prefix: string) => void
   commandList?: { name: string; description: string }[]
+  onRename?: (sessionId: string, title: string) => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -44,10 +45,12 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleInput, setTitleInput] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -247,9 +250,51 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-muted-foreground">
             <Monitor className="w-4 h-4" />
           </div>
-          <h1 className="text-base font-semibold text-foreground">
-            {activeSessionSummary || "Untitled"}
-          </h1>
+          {editingTitle ? (
+            <input
+              type="text"
+              value={titleInput}
+              autoFocus
+              onChange={(e) => setTitleInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = titleInput.trim()
+                  if (val && activeSessionId && onRename) onRename(activeSessionId, val)
+                  setEditingTitle(false)
+                } else if (e.key === 'Escape') {
+                  setEditingTitle(false)
+                }
+              }}
+              onBlur={() => {
+                const val = titleInput.trim()
+                if (val && activeSessionId && onRename) onRename(activeSessionId, val)
+                setEditingTitle(false)
+              }}
+              className="text-base font-semibold bg-white border-b border-primary outline-none text-foreground min-w-[120px]"
+            />
+          ) : (
+            <div className="flex items-center gap-1 group/title">
+              <h1
+                className="text-base font-semibold text-foreground border-b border-dashed border-slate-400 cursor-pointer hover:border-primary hover:text-primary transition-colors"
+                onClick={() => {
+                  setEditingTitle(true)
+                  setTitleInput(activeSessionSummary || "Untitled")
+                }}
+              >
+                {activeSessionSummary || "Untitled"}
+              </h1>
+              <button
+                className="text-slate-300 hover:text-primary opacity-0 group-hover/title:opacity-100 transition-opacity"
+                title="Rename session"
+                onClick={() => {
+                  setEditingTitle(true)
+                  setTitleInput(activeSessionSummary || "Untitled")
+                }}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <span className={cn(
             "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded",
             sessionRunning

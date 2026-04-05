@@ -323,6 +323,10 @@ export function App() {
           break
         }
 
+        case 'session_renamed':
+          store.renameSession(data.sessionId as string, data.title as string)
+          break
+
         case 'default_cwd':
           setDefaultCwd(data.cwd as string)
           break
@@ -371,6 +375,13 @@ export function App() {
   const handleResumeSession = useCallback(
     (sessionId: string) => {
       send({ type: 'resume_session', sessionId })
+    },
+    [send],
+  )
+
+  const handleRenameSession = useCallback(
+    (sessionId: string, title: string) => {
+      send({ type: 'rename_session', sessionId, title })
     },
     [send],
   )
@@ -490,6 +501,7 @@ export function App() {
           connected={connected}
           onToggleCollapse={() => setSidebarCollapsed(true)}
           onClose={handleCloseSession}
+          onRename={handleRenameSession}
         />
       </div>
       {!sidebarCollapsed && (
@@ -518,6 +530,7 @@ export function App() {
             fileList={fileList}
             onRequestFiles={handleRequestFiles}
             commandList={commandList}
+            onRename={handleRenameSession}
           />
         </div>
         {artifact && (
