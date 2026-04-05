@@ -159,7 +159,6 @@ export interface ChatItem {
   agentId?: string
   toolInput?: Record<string, unknown>
   // Elicitation-specific fields
-  elicitationId?: string
   serverName?: string
   elicitationMessage?: string
   mode?: string

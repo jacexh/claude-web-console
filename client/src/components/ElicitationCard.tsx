@@ -102,7 +102,10 @@ export function ElicitationCard({
                 <input
                   type="number"
                   value={String(formValues[key] ?? '')}
-                  onChange={(e) => setFormValues((v) => ({ ...v, [key]: Number(e.target.value) }))}
+                  onChange={(e) => setFormValues((v) => ({
+                    ...v,
+                    [key]: e.target.value === '' ? undefined : Number(e.target.value),
+                  }))}
                   className="text-xs border border-slate-200 rounded px-2 py-1 bg-white w-32"
                 />
               ) : (

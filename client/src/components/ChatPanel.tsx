@@ -274,7 +274,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         return (
           <ElicitationCard
             key={item.id}
-            id={item.elicitationId ?? item.id}
+            id={item.id}
             serverName={item.serverName ?? ''}
             message={item.elicitationMessage ?? ''}
             mode={item.mode}

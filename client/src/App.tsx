@@ -378,9 +378,8 @@ export function App() {
             const item: ChatItem = {
               id: data.id as string,
               type: 'elicitation',
-              content: null,
+              content: 'elicitation' as unknown,
               timestamp: Date.now(),
-              elicitationId: data.id as string,
               serverName: data.serverName as string,
               elicitationMessage: data.message as string,
               mode: data.mode as string | undefined,
