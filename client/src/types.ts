@@ -89,6 +89,13 @@ export interface GetSubagentMessagesMessage {
   agentId: string
 }
 
+export interface ElicitationResponseMessage {
+  type: 'elicitation_response'
+  id: string
+  action: 'accept' | 'decline' | 'cancel'
+  content?: Record<string, unknown>
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -106,6 +113,7 @@ export type ClientMessage =
   | ForkSessionMessage
   | SetEffortLevelMessage
   | GetSubagentMessagesMessage
+  | ElicitationResponseMessage
 
 // Server → Client
 export interface SessionInfo {
@@ -139,7 +147,7 @@ export interface ModelInfo {
 }
 
 // Frontend display types
-export type ChatItemType = 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'permission_request' | 'system'
+export type ChatItemType = 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'permission_request' | 'system' | 'elicitation'
 
 export interface ChatItem {
   id: string
@@ -150,4 +158,13 @@ export interface ChatItem {
   uuid?: string
   agentId?: string
   toolInput?: Record<string, unknown>
+  // Elicitation-specific fields
+  elicitationId?: string
+  serverName?: string
+  elicitationMessage?: string
+  mode?: string
+  requestedSchema?: Record<string, unknown>
+  url?: string
+  resolved?: boolean
+  resolvedAction?: string
 }

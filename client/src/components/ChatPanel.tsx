@@ -7,6 +7,7 @@ import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
 import { SubAgentCard } from "./SubAgentCard"
+import { ElicitationCard } from "./ElicitationCard"
 import { CommandMenu, filterCommands } from "./CommandMenu"
 import { FileMention, type FileEntry } from "./FileMention"
 import { StatusBar, type SessionStatusInfo } from "./StatusBar"
@@ -35,6 +36,7 @@ interface ChatPanelProps {
   onSetEffortLevel?: (level: EffortLevel) => void
   subagentMessages?: Record<string, unknown[]>
   onGetSubagentMessages?: (sessionId: string, agentId: string) => void
+  onElicitationResponse?: (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -51,7 +53,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -267,10 +269,27 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         }
         return null
       }
+      case "elicitation": {
+        if (!onElicitationResponse) return null
+        return (
+          <ElicitationCard
+            key={item.id}
+            id={item.elicitationId ?? item.id}
+            serverName={item.serverName ?? ''}
+            message={item.elicitationMessage ?? ''}
+            mode={item.mode}
+            requestedSchema={item.requestedSchema}
+            url={item.url}
+            resolved={item.resolved}
+            resolvedAction={item.resolvedAction}
+            onResponse={onElicitationResponse}
+          />
+        )
+      }
       default:
         return null
     }
-  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages])
+  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages, onElicitationResponse])
 
   const renderedHistory = useMemo(() => history.map(renderChatItem), [history, renderChatItem])
   const renderedMessages = useMemo(() => messages.map(renderChatItem), [messages, renderChatItem])

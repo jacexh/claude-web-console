@@ -372,6 +372,26 @@ export function App() {
           break
         }
 
+        case 'elicitation_request': {
+          const sessionId = (data.sessionId as string | undefined) ?? store.activeSessionId
+          if (sessionId) {
+            const item: ChatItem = {
+              id: data.id as string,
+              type: 'elicitation',
+              content: null,
+              timestamp: Date.now(),
+              elicitationId: data.id as string,
+              serverName: data.serverName as string,
+              elicitationMessage: data.message as string,
+              mode: data.mode as string | undefined,
+              requestedSchema: data.requestedSchema as Record<string, unknown> | undefined,
+              url: data.url as string | undefined,
+            }
+            store.addChatItem(sessionId, item)
+          }
+          break
+        }
+
         case 'default_cwd':
           setDefaultCwd(data.cwd as string)
           break
@@ -521,6 +541,20 @@ export function App() {
     [send],
   )
 
+  const handleElicitationResponse = useCallback(
+    (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => {
+      send({ type: 'elicitation_response', id, action, content })
+      // Find which session owns this elicitation item and mark it resolved
+      for (const [sessionId, items] of Object.entries(store.messagesBySession)) {
+        if (items.find((i) => i.id === id)) {
+          store.updateChatItem(sessionId, id, { resolved: true, resolvedAction: action })
+          break
+        }
+      }
+    },
+    [send, store],
+  )
+
   const handleRequestFiles = useCallback(
     (prefix: string) => {
       send({ type: 'list_files', prefix, sessionId: store.activeSessionId ?? undefined })
@@ -604,6 +638,7 @@ export function App() {
             onSetEffortLevel={handleSetEffortLevel}
             subagentMessages={subagentMessages}
             onGetSubagentMessages={handleGetSubagentMessages}
+            onElicitationResponse={handleElicitationResponse}
           />
         </div>
         {artifact && (
