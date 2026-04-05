@@ -570,8 +570,12 @@ export class SessionManager {
 
   async getSubagentMessages(sessionId: string, agentId: string): Promise<unknown[]> {
     const cwd = this.sessionCwds.get(sessionId)
-    const messages = await sdkGetSubagentMessages(sessionId, agentId, { dir: cwd })
-    return messages
+    try {
+      return await sdkGetSubagentMessages(sessionId, agentId, { dir: cwd })
+    } catch (err) {
+      console.error('[SessionManager] Failed to load subagent messages for', sessionId, agentId, err)
+      return []
+    }
   }
 
   getCwd(sessionId?: string): string {
