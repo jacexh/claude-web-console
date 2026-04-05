@@ -367,7 +367,8 @@ export function App() {
 
         case 'subagent_messages': {
           const { agentId, messages: agentMsgs } = data as { agentId: string; messages: unknown[] }
-          setSubagentMessages(prev => ({ ...prev, [agentId]: agentMsgs }))
+          const sessionId = (data.sessionId as string | undefined) ?? store.activeSessionId ?? ''
+          setSubagentMessages(prev => ({ ...prev, [`${sessionId}:${agentId}`]: agentMsgs }))
           break
         }
 

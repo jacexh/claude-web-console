@@ -207,13 +207,15 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             />
           )
         }
-        if (data.name === 'Agent' && item.agentId && activeSessionId) {
+        if (data.name === 'Agent' && item.agentId && activeSessionId && onGetSubagentMessages) {
           const toolInput = item.toolInput ?? data.input
           const promptStr = typeof toolInput.prompt === 'string' ? toolInput.prompt : undefined
           const descriptionStr = typeof toolInput.description === 'string' ? toolInput.description : undefined
           const description = (promptStr ? promptStr.split('\n')[0] : descriptionStr) ?? data.name
           const hasResult = data.result != null
-          const status: 'running' | 'done' = hasResult ? 'done' : sessionRunning ? 'running' : 'done'
+          const isError = Array.isArray(data.result) &&
+            (data.result as Array<{ type: string; is_error?: boolean }>).some(b => b.is_error === true)
+          const status: 'running' | 'done' | 'error' = isError ? 'error' : hasResult ? 'done' : sessionRunning ? 'running' : 'done'
           const resultContent = data.result
           let resultPreview: string | undefined
           if (resultContent != null) {
@@ -232,8 +234,8 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               description={description}
               status={status}
               resultPreview={resultPreview}
-              subagentMessages={subagentMessages?.[item.agentId]}
-              onExpand={onGetSubagentMessages ?? (() => {})}
+              subagentMessages={subagentMessages?.[`${activeSessionId}:${item.agentId}`]}
+              onExpand={onGetSubagentMessages}
             />
           )
         }
