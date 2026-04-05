@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { readdir, mkdir } from 'node:fs/promises'
 import { join, resolve, relative, basename, dirname } from 'node:path'
 import type { SessionManager, PermissionMeta, SessionListener } from './session-manager.js'
-import type { ClientMessage, ServerMessage, FileEntry } from './types.js'
+import type { ClientMessage, ServerMessage, FileEntry, EffortLevel } from './types.js'
 
 export function createWsHandler(sessionManager: SessionManager) {
   return async function handleConnection(socket: WebSocket): Promise<void> {
@@ -77,6 +77,15 @@ export function createWsHandler(sessionManager: SessionManager) {
               type: 'session_forked',
               sessionId: msg.sessionId as string,
               newSessionId: msg.newSessionId as string,
+            })
+            return
+          }
+
+          if (msg.type === 'effort_level_changed') {
+            send({
+              type: 'effort_level_changed',
+              sessionId: msg.sessionId as string,
+              level: msg.level as EffortLevel,
             })
             return
           }
@@ -236,6 +245,11 @@ export function createWsHandler(sessionManager: SessionManager) {
           case 'fork_session': {
             const newSessionId = await sessionManager.forkSession(msg.sessionId, msg.upToMessageId)
             send({ type: 'session_forked', sessionId: msg.sessionId, newSessionId })
+            break
+          }
+
+          case 'set_effort_level': {
+            await sessionManager.setEffortLevel(msg.sessionId, msg.level as EffortLevel)
             break
           }
         }

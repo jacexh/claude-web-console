@@ -13,7 +13,7 @@ import {
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { SessionInfo } from './types.js'
+import type { SessionInfo, EffortLevel } from './types.js'
 
 type PermissionResolver = {
   resolve: (approved: boolean, reason?: string, updatedPermissions?: import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[]) => void
@@ -485,6 +485,22 @@ export class SessionManager {
       throw new Error(`Session ${sessionId} does not support model switching`)
     }
     await query.setModel(model)
+  }
+
+  async setEffortLevel(sessionId: string, level: EffortLevel): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    // applyFlagSettings lives on the internal Query object (session.query)
+    const query = (session as unknown as { query: { applyFlagSettings(settings: { effort?: EffortLevel }): Promise<void> } }).query
+    if (!query?.applyFlagSettings) {
+      throw new Error(`Session ${sessionId} does not support effort level`)
+    }
+    await query.applyFlagSettings({ effort: level })
+    this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
+      type: 'effort_level_changed', sessionId, level,
+    } as unknown as SDKMessage))
   }
 
   async sendMessage(sessionId: string, content: string): Promise<void> {
