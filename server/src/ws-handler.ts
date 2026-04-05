@@ -249,7 +249,7 @@ export function createWsHandler(sessionManager: SessionManager) {
           }
 
           case 'set_effort_level': {
-            await sessionManager.setEffortLevel(msg.sessionId, msg.level as EffortLevel)
+            await sessionManager.setEffortLevel(msg.sessionId, msg.level)
             break
           }
         }
