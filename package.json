@@ -1,0 +1,49 @@
+{
+  "name": "claude-web-console",
+  "version": "0.1.0",
+  "description": "Web-based console for Claude Code — manage sessions, switch models, preview artifacts",
+  "type": "module",
+  "bin": {
+    "claude-web-console": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "server/src/",
+    "client/dist/"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:client": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=client",
+    "prepublishOnly": "npm run build"
+  },
+  "workspaces": ["server", "client"],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.92",
+    "@fastify/static": "^8.0.0",
+    "@fastify/websocket": "^11.0.0",
+    "fastify": "^5.2.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "web-console",
+    "ai",
+    "agent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jacexh/talgent.git",
+    "directory": "cc-web-console"
+  }
+}
