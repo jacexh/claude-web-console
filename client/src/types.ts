@@ -96,6 +96,11 @@ export interface ElicitationResponseMessage {
   content?: Record<string, unknown>
 }
 
+export interface GetSessionSettingsMessage {
+  type: 'get_session_settings'
+  sessionId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -114,6 +119,7 @@ export type ClientMessage =
   | SetEffortLevelMessage
   | GetSubagentMessagesMessage
   | ElicitationResponseMessage
+  | GetSessionSettingsMessage
 
 // Server → Client
 export interface SessionInfo {

@@ -1,4 +1,4 @@
-import { Activity, Cpu, DollarSign, Zap } from "lucide-react"
+import { Activity, Cpu, DollarSign, Settings, Zap } from "lucide-react"
 import type { ModelInfo, EffortLevel } from "../types"
 
 export interface SessionStatusInfo {
@@ -16,6 +16,7 @@ interface StatusBarProps {
   onSetModel: (model: string) => void
   effortLevel: EffortLevel
   onSetEffortLevel: (level: EffortLevel) => void
+  onOpenSettings?: () => void
 }
 
 function formatTokens(n: number): string {
@@ -34,7 +35,7 @@ function friendlyModelName(value: string): string {
   return value
 }
 
-export function StatusBar({ status, loading, availableModels, onSetModel, effortLevel, onSetEffortLevel }: StatusBarProps) {
+export function StatusBar({ status, loading, availableModels, onSetModel, effortLevel, onSetEffortLevel, onOpenSettings }: StatusBarProps) {
   const { model, totalCost, inputTokens, outputTokens, cacheReadTokens } = status
   const hasTokens = (inputTokens ?? 0) > 0 || (outputTokens ?? 0) > 0
 
@@ -104,6 +105,12 @@ export function StatusBar({ status, loading, availableModels, onSetModel, effort
 
       {loading && (
         <span className="ml-auto text-primary font-semibold animate-pulse">working...</span>
+      )}
+
+      {onOpenSettings && (
+        <button onClick={onOpenSettings} className="ml-auto text-slate-400 hover:text-slate-600" title="Session Settings">
+          <Settings size={13} />
+        </button>
       )}
     </div>
   )

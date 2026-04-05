@@ -37,6 +37,7 @@ interface ChatPanelProps {
   subagentMessages?: Record<string, unknown[]>
   onGetSubagentMessages?: (sessionId: string, agentId: string) => void
   onElicitationResponse?: (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => void
+  onOpenSettings?: () => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -53,7 +54,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -421,7 +422,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         <div className="max-w-4xl mx-auto">
           {sessionRunning ? (
             <>
-              <StatusBar status={sessionStatus} loading={loading} availableModels={availableModels} onSetModel={onSetModel} effortLevel={effortLevel ?? 'medium'} onSetEffortLevel={onSetEffortLevel ?? (() => {})} />
+              <StatusBar status={sessionStatus} loading={loading} availableModels={availableModels} onSetModel={onSetModel} effortLevel={effortLevel ?? 'medium'} onSetEffortLevel={onSetEffortLevel ?? (() => {})} onOpenSettings={onOpenSettings} />
               <div className="relative">
                 {showCmdMenu && menuItems.length > 0 && (
                   <CommandMenu

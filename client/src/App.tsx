@@ -10,6 +10,7 @@ import type { ChatItem, SessionInfo, ModelInfo, EffortLevel } from './types'
 import type { FileEntry } from './components/FileMention'
 import { NewSessionDialog } from './components/NewSessionDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
+import { SettingsModal } from './components/SettingsModal'
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -34,6 +35,8 @@ export function App() {
   const [modelsBySession, setModelsBySession] = useState<Record<string, ModelInfo[]>>({})
   const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
   const [subagentMessages, setSubagentMessages] = useState<Record<string, unknown[]>>({})
+  const [showSettings, setShowSettings] = useState(false)
+  const [currentSettings, setCurrentSettings] = useState<Record<string, unknown>>({})
   // Global model list: start with well-known models, replace with SDK list when available
   const [globalModels, setGlobalModels] = useState<ModelInfo[]>([
     { value: 'claude-sonnet-4-6', displayName: 'Claude Sonnet 4.6', description: 'Fast and capable' },
@@ -391,6 +394,11 @@ export function App() {
           break
         }
 
+        case 'session_settings':
+          setCurrentSettings(data.settings as Record<string, unknown>)
+          setShowSettings(true)
+          break
+
         case 'default_cwd':
           setDefaultCwd(data.cwd as string)
           break
@@ -540,6 +548,12 @@ export function App() {
     [send],
   )
 
+  const handleOpenSettings = useCallback(() => {
+    if (!store.activeSessionId) return
+    send({ type: 'get_session_settings', sessionId: store.activeSessionId })
+    // The modal opens when session_settings response arrives
+  }, [store.activeSessionId, send])
+
   const handleElicitationResponse = useCallback(
     (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => {
       send({ type: 'elicitation_response', id, action, content })
@@ -638,6 +652,7 @@ export function App() {
             subagentMessages={subagentMessages}
             onGetSubagentMessages={handleGetSubagentMessages}
             onElicitationResponse={handleElicitationResponse}
+            onOpenSettings={handleOpenSettings}
           />
         </div>
         {artifact && (
@@ -669,6 +684,12 @@ export function App() {
         onRequestFiles={handleRequestFiles}
         fileList={fileList}
       />
+      {showSettings && (
+        <SettingsModal
+          settings={currentSettings}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </div>
   )
 }
