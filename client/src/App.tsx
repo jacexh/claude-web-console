@@ -196,13 +196,15 @@ export function App() {
             if (msgType === 'assistant') {
               const content = message.content as Array<Record<string, unknown>> | undefined
               if (!content) continue
+              const msgUuid = msg.uuid as string | undefined
               for (const block of content) {
                 if (block.type === 'text') {
                   items.push({
-                    id: uuid(),
+                    id: msgUuid ?? uuid(),
                     type: 'assistant',
                     content: block.text as string,
                     timestamp: 0,
+                    uuid: msgUuid,
                   })
                 } else if (block.type === 'tool_use') {
                   const item: ChatItem = {
