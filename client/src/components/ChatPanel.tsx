@@ -6,6 +6,7 @@ import { Send, MessageSquare, Monitor, Paperclip, ArrowUp, HelpCircle, Pencil, G
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
+import { SubAgentCard } from "./SubAgentCard"
 import { CommandMenu, filterCommands } from "./CommandMenu"
 import { FileMention, type FileEntry } from "./FileMention"
 import { StatusBar, type SessionStatusInfo } from "./StatusBar"
@@ -32,6 +33,8 @@ interface ChatPanelProps {
   onFork?: (sessionId: string, upToMessageId: string) => void
   effortLevel?: EffortLevel
   onSetEffortLevel?: (level: EffortLevel) => void
+  subagentMessages?: Record<string, unknown[]>
+  onGetSubagentMessages?: (sessionId: string, agentId: string) => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -48,7 +51,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -204,6 +207,36 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             />
           )
         }
+        if (data.name === 'Agent' && item.agentId && activeSessionId) {
+          const toolInput = item.toolInput ?? data.input
+          const promptStr = typeof toolInput.prompt === 'string' ? toolInput.prompt : undefined
+          const descriptionStr = typeof toolInput.description === 'string' ? toolInput.description : undefined
+          const description = (promptStr ? promptStr.split('\n')[0] : descriptionStr) ?? data.name
+          const hasResult = data.result != null
+          const status: 'running' | 'done' = hasResult ? 'done' : sessionRunning ? 'running' : 'done'
+          const resultContent = data.result
+          let resultPreview: string | undefined
+          if (resultContent != null) {
+            if (typeof resultContent === 'string') {
+              resultPreview = resultContent.slice(0, 120)
+            } else if (Array.isArray(resultContent)) {
+              const textBlock = (resultContent as Array<{ type: string; text?: string }>).find(b => b.type === 'text')
+              if (textBlock?.text) resultPreview = textBlock.text.slice(0, 120)
+            }
+          }
+          return (
+            <SubAgentCard
+              key={item.id}
+              agentId={item.agentId}
+              sessionId={activeSessionId}
+              description={description}
+              status={status}
+              resultPreview={resultPreview}
+              subagentMessages={subagentMessages?.[item.agentId]}
+              onExpand={onGetSubagentMessages ?? (() => {})}
+            />
+          )
+        }
         return (
           <EventCard
             key={item.id}
@@ -235,7 +268,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       default:
         return null
     }
-  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId])
+  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages])
 
   const renderedHistory = useMemo(() => history.map(renderChatItem), [history, renderChatItem])
   const renderedMessages = useMemo(() => messages.map(renderChatItem), [messages, renderChatItem])

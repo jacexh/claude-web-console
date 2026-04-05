@@ -33,6 +33,7 @@ export function App() {
   const [statusBySession, setStatusBySession] = useState<Record<string, SessionStatusInfo>>({})
   const [modelsBySession, setModelsBySession] = useState<Record<string, ModelInfo[]>>({})
   const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
+  const [subagentMessages, setSubagentMessages] = useState<Record<string, unknown[]>>({})
   // Global model list: start with well-known models, replace with SDK list when available
   const [globalModels, setGlobalModels] = useState<ModelInfo[]>([
     { value: 'claude-sonnet-4-6', displayName: 'Claude Sonnet 4.6', description: 'Fast and capable' },
@@ -92,12 +93,17 @@ export function App() {
                 }
                 store.addChatItem(sessionId, item)
               } else if (block.type === 'tool_use') {
+                const toolName = block.name as string
+                const toolId = block.id as string
+                const toolInput = block.input as Record<string, unknown>
                 const item: ChatItem = {
-                  id: block.id as string,
+                  id: toolId,
                   type: 'tool_use',
-                  content: { name: block.name, input: block.input },
+                  content: { name: toolName, input: toolInput },
                   timestamp: Date.now(),
                   collapsed: true,
+                  agentId: toolName === 'Agent' ? toolId : undefined,
+                  toolInput,
                 }
                 store.addChatItem(sessionId, item)
               }
@@ -208,15 +214,20 @@ export function App() {
                     uuid: msgUuid,
                   })
                 } else if (block.type === 'tool_use') {
+                  const toolName = block.name as string
+                  const toolId = block.id as string
+                  const toolInput = block.input as Record<string, unknown>
                   const item: ChatItem = {
-                    id: block.id as string,
+                    id: toolId,
                     type: 'tool_use',
-                    content: { name: block.name, input: block.input },
+                    content: { name: toolName, input: toolInput },
                     timestamp: 0,
                     collapsed: true,
+                    agentId: toolName === 'Agent' ? toolId : undefined,
+                    toolInput,
                   }
                   items.push(item)
-                  toolUseMap.set(block.id as string, item)
+                  toolUseMap.set(toolId, item)
                 }
               }
             } else if (msgType === 'system' && (msg as Record<string, unknown>).subtype === 'local_command_output') {
@@ -353,6 +364,12 @@ export function App() {
         case 'effort_level_changed':
           setEffortBySession((prev) => ({ ...prev, [data.sessionId as string]: data.level as EffortLevel }))
           break
+
+        case 'subagent_messages': {
+          const { agentId, messages: agentMsgs } = data as { agentId: string; messages: unknown[] }
+          setSubagentMessages(prev => ({ ...prev, [agentId]: agentMsgs }))
+          break
+        }
 
         case 'default_cwd':
           setDefaultCwd(data.cwd as string)
@@ -496,6 +513,13 @@ export function App() {
     [send, store.activeSessionId],
   )
 
+  const handleGetSubagentMessages = useCallback(
+    (sessionId: string, agentId: string) => {
+      send({ type: 'get_subagent_messages', sessionId, agentId })
+    },
+    [send],
+  )
+
   const handleRequestFiles = useCallback(
     (prefix: string) => {
       send({ type: 'list_files', prefix, sessionId: store.activeSessionId ?? undefined })
@@ -577,6 +601,8 @@ export function App() {
             onFork={handleForkSession}
             effortLevel={effortBySession[store.activeSessionId ?? ''] ?? 'medium'}
             onSetEffortLevel={handleSetEffortLevel}
+            subagentMessages={subagentMessages}
+            onGetSubagentMessages={handleGetSubagentMessages}
           />
         </div>
         {artifact && (

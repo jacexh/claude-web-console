@@ -83,6 +83,12 @@ export interface SetEffortLevelMessage {
   level: EffortLevel
 }
 
+export interface GetSubagentMessagesMessage {
+  type: 'get_subagent_messages'
+  sessionId: string
+  agentId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -99,6 +105,7 @@ export type ClientMessage =
   | RenameSessionMessage
   | ForkSessionMessage
   | SetEffortLevelMessage
+  | GetSubagentMessagesMessage
 
 // Server → Client
 export interface SessionInfo {
@@ -141,4 +148,6 @@ export interface ChatItem {
   timestamp: number
   collapsed?: boolean
   uuid?: string
+  agentId?: string
+  toolInput?: Record<string, unknown>
 }
