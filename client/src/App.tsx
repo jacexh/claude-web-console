@@ -281,6 +281,15 @@ export function App() {
             }
             return updated
           })
+          // Remap effort level
+          setEffortBySession((prev) => {
+            const updated = { ...prev }
+            if (updated[data.tempId as string]) {
+              updated[data.sessionId as string] = updated[data.tempId as string]
+              delete updated[data.tempId as string]
+            }
+            return updated
+          })
           send({ type: 'list_commands', sessionId: data.sessionId as string })
           break
 
@@ -481,6 +490,7 @@ export function App() {
   const handleSetEffortLevel = useCallback(
     (level: EffortLevel) => {
       if (!store.activeSessionId) return
+      setEffortBySession((prev) => ({ ...prev, [store.activeSessionId!]: level }))
       send({ type: 'set_effort_level', sessionId: store.activeSessionId, level })
     },
     [send, store.activeSessionId],
