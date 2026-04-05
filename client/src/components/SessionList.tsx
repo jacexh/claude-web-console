@@ -161,7 +161,8 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
                       <input
                         ref={editInputRef}
                         type="text"
-                        defaultValue={session.summary}
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
                         autoFocus
                         onFocus={(e) => e.target.select()}
                         onClick={(e) => e.stopPropagation()}
