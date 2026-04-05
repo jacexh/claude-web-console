@@ -639,6 +639,9 @@ export class SessionManager {
   }
 
   async renameSession(sessionId: string, title: string): Promise<void> {
+    // Note: no active-session guard here — renameSession operates on saved session
+    // files, not running processes. this.sessions only tracks active sessions, so
+    // idle sessions would be incorrectly rejected. The SDK handles missing sessions.
     const cwd = this.sessionCwds.get(sessionId)
     await sdkRenameSession(sessionId, title, { dir: cwd })
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
