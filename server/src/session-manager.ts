@@ -22,6 +22,11 @@ type PermissionResolver = {
   suggestions?: import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[]
 }
 
+type ElicitationResult = {
+  action: 'accept' | 'decline' | 'cancel'
+  content?: Record<string, string | number | boolean | string[]>
+}
+
 export type PermissionMeta = {
   agentId?: string
   title?: string
@@ -115,6 +120,7 @@ function isSessionLockedExternally(sessionId: string): boolean {
 export class SessionManager {
   private sessions = new Map<string, SDKSession>()
   private pendingPermissions = new Map<string, PermissionResolver>()
+  private pendingElicitations = new Map<string, { resolve: (result: ElicitationResult) => void; sessionId: string }>()
   private runningSessionIds = new Set<string>()
   private closedSessionIds = new Set<string>()
   private streamingSessionIds = new Set<string>()
@@ -262,6 +268,21 @@ export class SessionManager {
       ...(options?.model ? { model: options.model } : {}),
       permissionMode: 'default',
       canUseTool: this.buildCanUseTool(sessionIdRef),
+      onElicitation: async (request: { serverName: string; message: string; mode?: string; url?: string; requestedSchema?: Record<string, unknown> }, _options: { signal: AbortSignal }) => {
+        const id = `elicit-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        return new Promise<ElicitationResult>((resolve) => {
+          this.pendingElicitations.set(id, { resolve, sessionId: sessionIdRef.current })
+          this.broadcast(sessionIdRef.current, (l) => l.onMessage(sessionIdRef.current, {
+            type: 'elicitation_request',
+            id,
+            serverName: request.serverName,
+            message: request.message,
+            mode: request.mode,
+            requestedSchema: request.requestedSchema,
+            url: request.url,
+          } as unknown as SDKMessage))
+        })
+      },
       env: cleanEnv(cwd),
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
       executableArgs: getPluginDirArgs(),
@@ -540,6 +561,13 @@ export class SessionManager {
     }
   }
 
+  resolveElicitation(id: string, action: string, content?: Record<string, unknown>): void {
+    const pending = this.pendingElicitations.get(id)
+    if (!pending) return
+    this.pendingElicitations.delete(id)
+    pending.resolve({ action: action as 'accept' | 'decline' | 'cancel', content: content as ElicitationResult['content'] })
+  }
+
   async listSessions(): Promise<SessionInfo[]> {
     const sessions = await listSessions()
     // Cache cwd for each session so resumeSession can use the correct project dir
@@ -600,13 +628,29 @@ export class SessionManager {
 
     // Use the cached cwd from listSessions so claude spawns in the correct project
     const cwd = this.sessionCwds.get(sessionId)
+    const resumeSessionIdRef = { current: sessionId }
     const sessionOptions = {
       permissionMode: 'default',
-      canUseTool: this.buildCanUseTool({ current: sessionId }),
+      canUseTool: this.buildCanUseTool(resumeSessionIdRef),
+      onElicitation: async (request: { serverName: string; message: string; mode?: string; url?: string; requestedSchema?: Record<string, unknown> }, _options: { signal: AbortSignal }) => {
+        const id = `elicit-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        return new Promise<ElicitationResult>((resolve) => {
+          this.pendingElicitations.set(id, { resolve, sessionId: resumeSessionIdRef.current })
+          this.broadcast(resumeSessionIdRef.current, (l) => l.onMessage(resumeSessionIdRef.current, {
+            type: 'elicitation_request',
+            id,
+            serverName: request.serverName,
+            message: request.message,
+            mode: request.mode,
+            requestedSchema: request.requestedSchema,
+            url: request.url,
+          } as unknown as SDKMessage))
+        })
+      },
       env: cleanEnv(cwd),
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
       executableArgs: getPluginDirArgs(),
-    } as SDKSessionOptions
+    } as unknown as SDKSessionOptions
 
     const originalCwd = process.cwd()
     if (cwd) { try { process.chdir(cwd) } catch { /* ignore */ } }
@@ -653,6 +697,13 @@ export class SessionManager {
         if (entry.sessionId === sessionId) {
           entry.resolve(false, 'Session closed')
           this.pendingPermissions.delete(id)
+        }
+      }
+      // Cancel pending elicitations for this session
+      for (const [id, entry] of this.pendingElicitations) {
+        if (entry.sessionId === sessionId) {
+          entry.resolve({ action: 'cancel' })
+          this.pendingElicitations.delete(id)
         }
       }
     }

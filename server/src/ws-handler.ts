@@ -90,6 +90,19 @@ export function createWsHandler(sessionManager: SessionManager) {
             return
           }
 
+          if (msg.type === 'elicitation_request') {
+            send({
+              type: 'elicitation_request',
+              id: msg.id as string,
+              serverName: msg.serverName as string,
+              message: msg.message as string,
+              mode: msg.mode as string | undefined,
+              requestedSchema: msg.requestedSchema as Record<string, unknown> | undefined,
+              url: msg.url as string | undefined,
+            })
+            return
+          }
+
           // Auto-push command list on init or commands_updated
           if ((msg.type === 'system' && msg.subtype === 'init') || msg.type === 'commands_updated') {
             sessionManager.getCommands(sid).then((commands) => {
@@ -256,6 +269,11 @@ export function createWsHandler(sessionManager: SessionManager) {
           case 'get_subagent_messages': {
             const messages = await sessionManager.getSubagentMessages(msg.sessionId, msg.agentId)
             send({ type: 'subagent_messages', agentId: msg.agentId, messages })
+            break
+          }
+
+          case 'elicitation_response': {
+            sessionManager.resolveElicitation(msg.id, msg.action, msg.content as Record<string, unknown> | undefined)
             break
           }
         }

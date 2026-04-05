@@ -93,6 +93,13 @@ export interface GetSubagentMessagesMessage {
   agentId: string
 }
 
+export interface ElicitationResponseMessage {
+  type: 'elicitation_response'
+  id: string
+  action: 'accept' | 'decline' | 'cancel'
+  content?: Record<string, unknown>
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -110,6 +117,7 @@ export type ClientMessage =
   | ForkSessionMessage
   | SetEffortLevelMessage
   | GetSubagentMessagesMessage
+  | ElicitationResponseMessage
 
 // === Server → Client Messages ===
 
@@ -239,6 +247,16 @@ export interface SubagentMessagesMessage {
   messages: unknown[]
 }
 
+export interface ElicitationRequestMessage {
+  type: 'elicitation_request'
+  id: string
+  serverName: string
+  message: string
+  mode?: string
+  requestedSchema?: Record<string, unknown>
+  url?: string
+}
+
 export type ServerMessage =
   | SessionCreatedMessage
   | SessionListMessage
@@ -258,3 +276,4 @@ export type ServerMessage =
   | SessionForkedMessage
   | EffortLevelChangedMessage
   | SubagentMessagesMessage
+  | ElicitationRequestMessage
