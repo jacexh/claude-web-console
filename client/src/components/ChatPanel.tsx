@@ -9,7 +9,7 @@ import { QuestionCard } from "./QuestionCard"
 import { CommandMenu, filterCommands } from "./CommandMenu"
 import { FileMention, type FileEntry } from "./FileMention"
 import { StatusBar, type SessionStatusInfo } from "./StatusBar"
-import type { ChatItem, ModelInfo } from "../types"
+import type { ChatItem, ModelInfo, EffortLevel } from "../types"
 
 interface ChatPanelProps {
   messages: ChatItem[]
@@ -30,6 +30,8 @@ interface ChatPanelProps {
   commandList?: { name: string; description: string }[]
   onRename?: (sessionId: string, title: string) => void
   onFork?: (sessionId: string, upToMessageId: string) => void
+  effortLevel?: EffortLevel
+  onSetEffortLevel?: (level: EffortLevel) => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -46,7 +48,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -365,7 +367,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         <div className="max-w-4xl mx-auto">
           {sessionRunning ? (
             <>
-              <StatusBar status={sessionStatus} loading={loading} availableModels={availableModels} onSetModel={onSetModel} />
+              <StatusBar status={sessionStatus} loading={loading} availableModels={availableModels} onSetModel={onSetModel} effortLevel={effortLevel ?? 'medium'} onSetEffortLevel={onSetEffortLevel ?? (() => {})} />
               <div className="relative">
                 {showCmdMenu && menuItems.length > 0 && (
                   <CommandMenu

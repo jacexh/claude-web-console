@@ -6,7 +6,7 @@ import { SessionList } from './components/SessionList'
 import { ChatPanel } from './components/ChatPanel'
 import { ArtifactPanel, type Artifact } from './components/ArtifactPanel'
 import { ResizeHandle } from './components/ResizeHandle'
-import type { ChatItem, SessionInfo, ModelInfo } from './types'
+import type { ChatItem, SessionInfo, ModelInfo, EffortLevel } from './types'
 import type { FileEntry } from './components/FileMention'
 import { NewSessionDialog } from './components/NewSessionDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
@@ -32,6 +32,7 @@ export function App() {
   const [defaultCwd, setDefaultCwd] = useState('')
   const [statusBySession, setStatusBySession] = useState<Record<string, SessionStatusInfo>>({})
   const [modelsBySession, setModelsBySession] = useState<Record<string, ModelInfo[]>>({})
+  const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
   // Global model list: start with well-known models, replace with SDK list when available
   const [globalModels, setGlobalModels] = useState<ModelInfo[]>([
     { value: 'claude-sonnet-4-6', displayName: 'Claude Sonnet 4.6', description: 'Fast and capable' },
@@ -340,6 +341,10 @@ export function App() {
           break
         }
 
+        case 'effort_level_changed':
+          setEffortBySession((prev) => ({ ...prev, [data.sessionId as string]: data.level as EffortLevel }))
+          break
+
         case 'default_cwd':
           setDefaultCwd(data.cwd as string)
           break
@@ -473,6 +478,14 @@ export function App() {
     [send, store.activeSessionId, updateSessionStatus],
   )
 
+  const handleSetEffortLevel = useCallback(
+    (level: EffortLevel) => {
+      if (!store.activeSessionId) return
+      send({ type: 'set_effort_level', sessionId: store.activeSessionId, level })
+    },
+    [send, store.activeSessionId],
+  )
+
   const handleRequestFiles = useCallback(
     (prefix: string) => {
       send({ type: 'list_files', prefix, sessionId: store.activeSessionId ?? undefined })
@@ -552,6 +565,8 @@ export function App() {
             commandList={commandList}
             onRename={handleRenameSession}
             onFork={handleForkSession}
+            effortLevel={effortBySession[store.activeSessionId ?? ''] ?? 'medium'}
+            onSetEffortLevel={handleSetEffortLevel}
           />
         </div>
         {artifact && (

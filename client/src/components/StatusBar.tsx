@@ -1,5 +1,5 @@
-import { Cpu, DollarSign, Zap } from "lucide-react"
-import type { ModelInfo } from "../types"
+import { Activity, Cpu, DollarSign, Zap } from "lucide-react"
+import type { ModelInfo, EffortLevel } from "../types"
 
 export interface SessionStatusInfo {
   model?: string
@@ -14,6 +14,8 @@ interface StatusBarProps {
   loading: boolean
   availableModels: ModelInfo[]
   onSetModel: (model: string) => void
+  effortLevel: EffortLevel
+  onSetEffortLevel: (level: EffortLevel) => void
 }
 
 function formatTokens(n: number): string {
@@ -32,7 +34,7 @@ function friendlyModelName(value: string): string {
   return value
 }
 
-export function StatusBar({ status, loading, availableModels, onSetModel }: StatusBarProps) {
+export function StatusBar({ status, loading, availableModels, onSetModel, effortLevel, onSetEffortLevel }: StatusBarProps) {
   const { model, totalCost, inputTokens, outputTokens, cacheReadTokens } = status
   const hasTokens = (inputTokens ?? 0) > 0 || (outputTokens ?? 0) > 0
 
@@ -66,6 +68,20 @@ export function StatusBar({ status, loading, availableModels, onSetModel }: Stat
           )}
         </span>
       )}
+
+      <span className="flex items-center gap-1.5" title="Effort level">
+        <Activity className="w-3.5 h-3.5 text-slate-400" />
+        <select
+          value={effortLevel}
+          onChange={(e) => onSetEffortLevel(e.target.value as EffortLevel)}
+          className="font-semibold text-slate-600 bg-transparent border-none outline-none cursor-pointer text-xs font-mono hover:text-slate-900 appearance-none pr-4 bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2210%22%20height%3D%226%22%3E%3Cpath%20d%3D%22M0%200l5%206%205-6z%22%20fill%3D%22%2394a3b8%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_6px] bg-[right_center] bg-no-repeat"
+        >
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+          <option value="max">max</option>
+        </select>
+      </span>
 
       {hasTokens && (
         <span className="flex items-center gap-1.5" title="Tokens (in / out)">

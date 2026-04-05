@@ -75,6 +75,14 @@ export interface ForkSessionMessage {
   upToMessageId: string
 }
 
+export type EffortLevel = 'low' | 'medium' | 'high' | 'max'
+
+export interface SetEffortLevelMessage {
+  type: 'set_effort_level'
+  sessionId: string
+  level: EffortLevel
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -90,6 +98,7 @@ export type ClientMessage =
   | ListModelsMessage
   | RenameSessionMessage
   | ForkSessionMessage
+  | SetEffortLevelMessage
 
 // Server → Client
 export interface SessionInfo {
@@ -108,6 +117,12 @@ export interface SessionForkedMessage {
   type: 'session_forked'
   sessionId: string
   newSessionId: string
+}
+
+export interface EffortLevelChangedMessage {
+  type: 'effort_level_changed'
+  sessionId: string
+  level: EffortLevel
 }
 
 export interface ModelInfo {
