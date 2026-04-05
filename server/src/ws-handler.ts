@@ -252,6 +252,12 @@ export function createWsHandler(sessionManager: SessionManager) {
             await sessionManager.setEffortLevel(msg.sessionId, msg.level)
             break
           }
+
+          case 'get_subagent_messages': {
+            const messages = await sessionManager.getSubagentMessages(msg.sessionId, msg.agentId)
+            send({ type: 'subagent_messages', agentId: msg.agentId, messages })
+            break
+          }
         }
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' })

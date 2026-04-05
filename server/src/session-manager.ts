@@ -3,6 +3,7 @@ import {
   unstable_v2_resumeSession,
   listSessions,
   getSessionMessages,
+  getSubagentMessages as sdkGetSubagentMessages,
   renameSession as sdkRenameSession,
   forkSession as sdkForkSession,
   type SDKSession,
@@ -565,6 +566,12 @@ export class SessionManager {
       console.error('[SessionManager] Failed to load history for', sessionId, err)
       return []
     }
+  }
+
+  async getSubagentMessages(sessionId: string, agentId: string): Promise<unknown[]> {
+    const cwd = this.sessionCwds.get(sessionId)
+    const messages = await sdkGetSubagentMessages(sessionId, agentId, { dir: cwd })
+    return messages
   }
 
   getCwd(sessionId?: string): string {

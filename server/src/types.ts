@@ -87,6 +87,12 @@ export interface SetEffortLevelMessage {
   level: EffortLevel
 }
 
+export interface GetSubagentMessagesMessage {
+  type: 'get_subagent_messages'
+  sessionId: string
+  agentId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -103,6 +109,7 @@ export type ClientMessage =
   | RenameSessionMessage
   | ForkSessionMessage
   | SetEffortLevelMessage
+  | GetSubagentMessagesMessage
 
 // === Server → Client Messages ===
 
@@ -226,6 +233,12 @@ export interface EffortLevelChangedMessage {
   level: EffortLevel
 }
 
+export interface SubagentMessagesMessage {
+  type: 'subagent_messages'
+  agentId: string
+  messages: unknown[]
+}
+
 export type ServerMessage =
   | SessionCreatedMessage
   | SessionListMessage
@@ -244,3 +257,4 @@ export type ServerMessage =
   | SessionRenamedMessage
   | SessionForkedMessage
   | EffortLevelChangedMessage
+  | SubagentMessagesMessage
