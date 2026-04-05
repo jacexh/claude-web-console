@@ -73,6 +73,12 @@ export interface RenameSessionMessage {
   title: string
 }
 
+export interface ForkSessionMessage {
+  type: 'fork_session'
+  sessionId: string
+  upToMessageId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -87,6 +93,7 @@ export type ClientMessage =
   | SetModelMessage
   | ListModelsMessage
   | RenameSessionMessage
+  | ForkSessionMessage
 
 // === Server → Client Messages ===
 
@@ -198,6 +205,11 @@ export interface SessionRenamedMessage {
   title: string
 }
 
+export interface SessionForkedMessage {
+  type: 'session_forked'
+  newSessionId: string
+}
+
 export type ServerMessage =
   | SessionCreatedMessage
   | SessionListMessage
@@ -214,3 +226,4 @@ export type ServerMessage =
   | SessionResumedMessage
   | ModelListMessage
   | SessionRenamedMessage
+  | SessionForkedMessage

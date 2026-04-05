@@ -4,6 +4,7 @@ import {
   listSessions,
   getSessionMessages,
   renameSession as sdkRenameSession,
+  forkSession as sdkForkSession,
   type SDKSession,
   type SDKSessionOptions,
   type SDKMessage,
@@ -647,5 +648,15 @@ export class SessionManager {
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
       type: 'session_renamed', sessionId, title,
     } as unknown as SDKMessage))
+  }
+
+  async forkSession(sessionId: string, upToMessageId: string): Promise<string> {
+    const cwd = this.sessionCwds.get(sessionId)
+    const result = await sdkForkSession(sessionId, { upToMessageId, dir: cwd })
+    const newSessionId = result.sessionId
+    this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
+      type: 'session_forked', newSessionId,
+    } as unknown as SDKMessage))
+    return newSessionId
   }
 }

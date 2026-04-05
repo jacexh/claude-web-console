@@ -72,6 +72,14 @@ export function createWsHandler(sessionManager: SessionManager) {
             return
           }
 
+          if (msg.type === 'session_forked') {
+            send({
+              type: 'session_forked',
+              newSessionId: msg.newSessionId as string,
+            })
+            return
+          }
+
           // Auto-push command list on init or commands_updated
           if ((msg.type === 'system' && msg.subtype === 'init') || msg.type === 'commands_updated') {
             sessionManager.getCommands(sid).then((commands) => {
@@ -221,6 +229,11 @@ export function createWsHandler(sessionManager: SessionManager) {
 
           case 'rename_session': {
             await sessionManager.renameSession(msg.sessionId, msg.title)
+            break
+          }
+
+          case 'fork_session': {
+            await sessionManager.forkSession(msg.sessionId, msg.upToMessageId)
             break
           }
         }
