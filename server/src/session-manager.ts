@@ -651,11 +651,14 @@ export class SessionManager {
   }
 
   async forkSession(sessionId: string, upToMessageId: string): Promise<string> {
+    if (!upToMessageId) {
+      throw new Error('upToMessageId is required')
+    }
     const cwd = this.sessionCwds.get(sessionId)
     const result = await sdkForkSession(sessionId, { upToMessageId, dir: cwd })
     const newSessionId = result.sessionId
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
-      type: 'session_forked', newSessionId,
+      type: 'session_forked', sessionId, newSessionId,
     } as unknown as SDKMessage))
     return newSessionId
   }

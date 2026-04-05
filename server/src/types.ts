@@ -207,6 +207,7 @@ export interface SessionRenamedMessage {
 
 export interface SessionForkedMessage {
   type: 'session_forked'
+  sessionId: string
   newSessionId: string
 }
 

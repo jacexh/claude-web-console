@@ -75,6 +75,7 @@ export function createWsHandler(sessionManager: SessionManager) {
           if (msg.type === 'session_forked') {
             send({
               type: 'session_forked',
+              sessionId: msg.sessionId as string,
               newSessionId: msg.newSessionId as string,
             })
             return
@@ -233,7 +234,8 @@ export function createWsHandler(sessionManager: SessionManager) {
           }
 
           case 'fork_session': {
-            await sessionManager.forkSession(msg.sessionId, msg.upToMessageId)
+            const newSessionId = await sessionManager.forkSession(msg.sessionId, msg.upToMessageId)
+            send({ type: 'session_forked', sessionId: msg.sessionId, newSessionId })
             break
           }
         }
