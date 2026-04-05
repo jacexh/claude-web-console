@@ -3,6 +3,7 @@ import {
   unstable_v2_resumeSession,
   listSessions,
   getSessionMessages,
+  renameSession as sdkRenameSession,
   type SDKSession,
   type SDKSessionOptions,
   type SDKMessage,
@@ -635,5 +636,13 @@ export class SessionManager {
       console.log('[SessionManager] Shutting down session', sessionId)
       this.closeSession(sessionId)
     }
+  }
+
+  async renameSession(sessionId: string, title: string): Promise<void> {
+    const cwd = this.sessionCwds.get(sessionId)
+    await sdkRenameSession(sessionId, title, { dir: cwd })
+    this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
+      type: 'session_renamed', sessionId, title,
+    } as unknown as SDKMessage))
   }
 }

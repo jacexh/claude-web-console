@@ -67,6 +67,12 @@ export interface ListModelsMessage {
   sessionId: string
 }
 
+export interface RenameSessionMessage {
+  type: 'rename_session'
+  sessionId: string
+  title: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -80,6 +86,7 @@ export type ClientMessage =
   | CloseSessionMessage
   | SetModelMessage
   | ListModelsMessage
+  | RenameSessionMessage
 
 // === Server → Client Messages ===
 
@@ -185,6 +192,12 @@ export interface ModelListMessage {
   currentModel?: string
 }
 
+export interface SessionRenamedMessage {
+  type: 'session_renamed'
+  sessionId: string
+  title: string
+}
+
 export type ServerMessage =
   | SessionCreatedMessage
   | SessionListMessage
@@ -200,3 +213,4 @@ export type ServerMessage =
   | PermissionDecidedMessage
   | SessionResumedMessage
   | ModelListMessage
+  | SessionRenamedMessage

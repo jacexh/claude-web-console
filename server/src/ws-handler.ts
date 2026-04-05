@@ -63,6 +63,15 @@ export function createWsHandler(sessionManager: SessionManager) {
             return
           }
 
+          if (msg.type === 'session_renamed') {
+            send({
+              type: 'session_renamed',
+              sessionId: msg.sessionId as string,
+              title: msg.title as string,
+            })
+            return
+          }
+
           // Auto-push command list on init or commands_updated
           if ((msg.type === 'system' && msg.subtype === 'init') || msg.type === 'commands_updated') {
             sessionManager.getCommands(sid).then((commands) => {
@@ -207,6 +216,11 @@ export function createWsHandler(sessionManager: SessionManager) {
             if (models.length > 0) {
               send({ type: 'model_list', sessionId: msg.sessionId, models })
             }
+            break
+          }
+
+          case 'rename_session': {
+            await sessionManager.renameSession(msg.sessionId, msg.title)
             break
           }
         }
