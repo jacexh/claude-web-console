@@ -255,6 +255,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               type="text"
               value={titleInput}
               autoFocus
+              onFocus={(e) => e.target.select()}
               onChange={(e) => setTitleInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {

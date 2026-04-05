@@ -163,6 +163,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
                         type="text"
                         defaultValue={session.summary}
                         autoFocus
+                        onFocus={(e) => e.target.select()}
                         onClick={(e) => e.stopPropagation()}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
