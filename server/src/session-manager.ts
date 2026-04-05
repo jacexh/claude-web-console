@@ -278,18 +278,20 @@ export class SessionManager {
   }
 
   async createSession(
-    options?: { model?: string; cwd?: string },
+    options?: { model?: string; cwd?: string; permissionMode?: string; executableArgs?: string[] },
   ): Promise<string> {
     const cwd = options?.cwd ?? process.env.CC_WEB_CONSOLE_CWD ?? process.env.HOME ?? '/'
     const sessionIdRef = { current: '' }
+    const pluginArgs = getPluginDirArgs()
+    const userArgs = options?.executableArgs ?? []
     const sessionOptions = {
       ...(options?.model ? { model: options.model } : {}),
-      permissionMode: 'default',
+      permissionMode: options?.permissionMode ?? 'default',
       canUseTool: this.buildCanUseTool(sessionIdRef),
       onElicitation: this.buildOnElicitation(sessionIdRef),
       env: cleanEnv(cwd),
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
-      executableArgs: getPluginDirArgs(),
+      executableArgs: [...pluginArgs, ...userArgs],
     } as SDKSessionOptions
 
     const originalCwd = process.cwd()

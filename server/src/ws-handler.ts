@@ -256,8 +256,7 @@ export function createWsHandler(sessionManager: SessionManager) {
           }
 
           case 'fork_session': {
-            const newSessionId = await sessionManager.forkSession(msg.sessionId, msg.upToMessageId)
-            send({ type: 'session_forked', sessionId: msg.sessionId, newSessionId })
+            await sessionManager.forkSession(msg.sessionId, msg.upToMessageId)
             break
           }
 
@@ -340,10 +339,9 @@ function entriesToFiles(
     if (IGNORED.has(entry.name)) continue
     if (namePrefix && !entry.name.toLowerCase().startsWith(namePrefix)) continue
     const fullPath = join(dir, entry.name)
-    const relPath = relative(cwd, fullPath)
     results.push({
       name: entry.name,
-      path: relPath + (entry.isDirectory() ? '/' : ''),
+      path: fullPath + (entry.isDirectory() ? '/' : ''),
       isDir: entry.isDirectory(),
     })
     if (results.length >= MAX_FILES) break

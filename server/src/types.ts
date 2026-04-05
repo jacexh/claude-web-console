@@ -5,6 +5,8 @@ export interface CreateSessionMessage {
   options?: {
     model?: string
     cwd?: string
+    permissionMode?: string
+    executableArgs?: string[]
   }
 }
 

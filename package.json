@@ -1,5 +1,5 @@
 {
-  "name": "claude-web-console",
+  "name": "@jacexh/claude-web-console",
   "version": "0.1.0",
   "description": "Web-based console for Claude Code — manage sessions, switch models, preview artifacts",
   "type": "module",
@@ -44,6 +44,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/jacexh/talgent.git",
-    "directory": "cc-web-console"
+    "directory": "claude-web-console"
   }
 }

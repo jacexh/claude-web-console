@@ -1,5 +1,5 @@
-import { memo } from "react"
-import { Bot, TerminalSquare, Bell, CheckCircle, XCircle } from "lucide-react"
+import { memo, useState } from "react"
+import { Bot, TerminalSquare, Bell, CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkFrontmatter from "remark-frontmatter"
@@ -97,9 +97,12 @@ function TaskNotificationBadge({ taskId, status, summary }: { taskId: string; st
 }
 
 export const MessageBubble = memo(function MessageBubble({ role, content }: MessageBubbleProps) {
+  const [expanded, setExpanded] = useState(false)
+
   if (role === "user") {
     const { text, command, stdout, taskNotification } = parseUserContent(content)
     const hasCommand = command != null
+    const isLong = text.length > 300
 
     // Pure task notification, no other content
     if (taskNotification && !text && !hasCommand) {
@@ -130,6 +133,8 @@ export const MessageBubble = memo(function MessageBubble({ role, content }: Mess
       )
     }
 
+    const displayText = isLong && !expanded ? text.slice(0, 200) + '…' : text
+
     return (
       <div className="flex flex-col items-end gap-2 py-2">
         {taskNotification && <TaskNotificationBadge {...taskNotification} />}
@@ -143,7 +148,16 @@ export const MessageBubble = memo(function MessageBubble({ role, content }: Mess
         )}
         {text && (
           <div className="max-w-[75%] rounded-2xl rounded-br-md bg-slate-100 border border-slate-200 px-4 py-3 shadow-ambient">
-            <div className="text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">{text}</div>
+            <div className="text-[15px] leading-relaxed text-foreground whitespace-pre-wrap">{displayText}</div>
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-1 mt-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                {expanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                {expanded ? 'Collapse' : 'Show more'}
+              </button>
+            )}
           </div>
         )}
         {stdout && stdout !== "(no content)" && (

@@ -12,7 +12,7 @@ interface SessionState {
 type SessionAction =
   | { type: 'SET_SESSIONS'; sessions: SessionInfo[] }
   | { type: 'SET_ACTIVE'; sessionId: string }
-  | { type: 'ADD_SESSION'; sessionId: string }
+  | { type: 'ADD_SESSION'; sessionId: string; status?: 'idle' | 'running' }
   | { type: 'ADD_CHAT_ITEM'; sessionId: string; item: ChatItem }
   | { type: 'UPDATE_CHAT_ITEM'; sessionId: string; itemId: string; updates: Partial<ChatItem> }
   | { type: 'SESSION_END'; sessionId: string }
@@ -32,11 +32,14 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
       return { ...state, activeSessionId: action.sessionId }
 
     case 'ADD_SESSION': {
+      if (state.sessions.some((s) => s.sessionId === action.sessionId)) {
+        return { ...state, activeSessionId: action.sessionId }
+      }
       const newSession: SessionInfo = {
         sessionId: action.sessionId,
         summary: 'New conversation',
         lastModified: Date.now(),
-        status: 'running',
+        status: action.status ?? 'running',
       }
       return {
         ...state,
@@ -208,8 +211,8 @@ export function useSessionStore() {
     dispatch({ type: 'SET_ACTIVE', sessionId })
   }, [])
 
-  const addSession = useCallback((sessionId: string) => {
-    dispatch({ type: 'ADD_SESSION', sessionId })
+  const addSession = useCallback((sessionId: string, status?: 'idle' | 'running') => {
+    dispatch({ type: 'ADD_SESSION', sessionId, status })
   }, [])
 
   const addChatItem = useCallback((sessionId: string, item: ChatItem) => {

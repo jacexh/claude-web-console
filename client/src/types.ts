@@ -1,7 +1,7 @@
 // Mirror server types for WS protocol
 export interface CreateSessionMessage {
   type: 'create_session'
-  options?: { model?: string; cwd?: string }
+  options?: { model?: string; cwd?: string; permissionMode?: string; executableArgs?: string[] }
 }
 
 export interface SendMessageMessage {

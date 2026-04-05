@@ -14,7 +14,7 @@ interface NewSessionDialogProps {
   open: boolean
   defaultCwd: string
   availableModels: ModelInfo[]
-  onConfirm: (cwd: string, model?: string) => void
+  onConfirm: (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[]) => void
   onCancel: () => void
   onRequestFiles: (prefix: string) => void
   fileList: FileEntry[]
@@ -33,6 +33,8 @@ export function NewSessionDialog({
 }: NewSessionDialogProps) {
   const [value, setValue] = useState("")
   const [selectedModel, setSelectedModel] = useState("")
+  const [permissionMode, setPermissionMode] = useState("")
+  const [argsText, setArgsText] = useState("")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -47,6 +49,8 @@ export function NewSessionDialog({
       const saved = localStorage.getItem(STORAGE_KEY)
       setValue(saved || defaultCwd)
       setSelectedModel("")
+      setPermissionMode("")
+      setArgsText("")
       setShowSuggestions(false)
       setSelectedIndex(0)
       // Focus input after mount
@@ -64,8 +68,9 @@ export function NewSessionDialog({
   const handleConfirm = useCallback(() => {
     const cwd = value.trim() || defaultCwd
     localStorage.setItem(STORAGE_KEY, cwd)
-    onConfirm(cwd, selectedModel || undefined)
-  }, [value, defaultCwd, selectedModel, onConfirm])
+    const args = argsText.trim() ? argsText.trim().split(/\s+/) : undefined
+    onConfirm(cwd, selectedModel || undefined, permissionMode || undefined, args)
+  }, [value, defaultCwd, selectedModel, permissionMode, argsText, onConfirm])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -79,8 +84,7 @@ export function NewSessionDialog({
     if (e.key === "Enter") {
       if (showSuggestions && dirEntries.length > 0) {
         const selected = dirEntries[selectedIndex]
-        const base = value.replace(/[^/]*$/, "")
-        setValue(base + selected.path)
+        setValue(selected.path)
         setShowSuggestions(false)
         setSelectedIndex(0)
       } else {
@@ -159,8 +163,7 @@ export function NewSessionDialog({
                   data-active={i === selectedIndex}
                   onMouseDown={(e) => {
                     e.preventDefault()
-                    const base = value.replace(/[^/]*$/, "")
-                    setValue(base + entry.path)
+                    setValue(entry.path)
                     setShowSuggestions(false)
                     setSelectedIndex(0)
                   }}
@@ -204,6 +207,33 @@ export function NewSessionDialog({
             </select>
           </>
         )}
+
+        <label className="block text-xs text-muted-foreground mb-2 mt-4">
+          Permission Mode
+        </label>
+        <select
+          value={permissionMode}
+          onChange={(e) => setPermissionMode(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg bg-surface-high/50 border border-border text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+        >
+          <option value="">default</option>
+          <option value="auto">auto — fully autonomous</option>
+          <option value="acceptEdits">acceptEdits — auto-accept file edits</option>
+          <option value="plan">plan — planning only, no execution</option>
+          <option value="bypassPermissions">bypassPermissions — skip all checks</option>
+          <option value="dontAsk">dontAsk — deny if not pre-approved</option>
+        </select>
+
+        <label className="block text-xs text-muted-foreground mb-2 mt-4">
+          Extra Arguments
+        </label>
+        <input
+          type="text"
+          value={argsText}
+          onChange={(e) => setArgsText(e.target.value)}
+          placeholder="e.g. --system-prompt 'Be concise'"
+          className="w-full px-3 py-2 rounded-lg bg-surface-high/50 border border-border text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
 
         <div className="flex justify-end gap-2 mt-5">
           <Button

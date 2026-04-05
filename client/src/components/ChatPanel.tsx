@@ -212,21 +212,22 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         }
         if (data.name === 'Agent' && item.agentId && activeSessionId && onGetSubagentMessages) {
           const toolInput = item.toolInput ?? data.input
+          const agentName = typeof toolInput.subagent_type === 'string' ? toolInput.subagent_type : undefined
           const promptStr = typeof toolInput.prompt === 'string' ? toolInput.prompt : undefined
           const descriptionStr = typeof toolInput.description === 'string' ? toolInput.description : undefined
-          const description = (promptStr ? promptStr.split('\n')[0] : descriptionStr) ?? data.name
+          const description = descriptionStr ?? (promptStr ? promptStr.split('\n')[0] : undefined) ?? data.name
           const hasResult = data.result != null
           const isError = Array.isArray(data.result) &&
             (data.result as Array<{ type: string; is_error?: boolean }>).some(b => b.is_error === true)
           const status: 'running' | 'done' | 'error' = isError ? 'error' : hasResult ? 'done' : sessionRunning ? 'running' : 'done'
           const resultContent = data.result
-          let resultPreview: string | undefined
+          let resultText: string | undefined
           if (resultContent != null) {
             if (typeof resultContent === 'string') {
-              resultPreview = resultContent.slice(0, 120)
+              resultText = resultContent
             } else if (Array.isArray(resultContent)) {
               const textBlock = (resultContent as Array<{ type: string; text?: string }>).find(b => b.type === 'text')
-              if (textBlock?.text) resultPreview = textBlock.text.slice(0, 120)
+              if (textBlock?.text) resultText = textBlock.text
             }
           }
           return (
@@ -234,11 +235,15 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               key={item.id}
               agentId={item.agentId}
               sessionId={activeSessionId}
+              agentName={agentName}
               description={description}
               status={status}
-              resultPreview={resultPreview}
+              resultPreview={resultText ? resultText.slice(0, 120) : undefined}
+              resultText={resultText}
               subagentMessages={subagentMessages?.[`${activeSessionId}:${item.agentId}`]}
+              allSubagentMessages={subagentMessages}
               onExpand={onGetSubagentMessages}
+              onSelectArtifact={onSelectArtifact}
             />
           )
         }

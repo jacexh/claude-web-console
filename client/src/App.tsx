@@ -34,7 +34,7 @@ export function App() {
   const [statusBySession, setStatusBySession] = useState<Record<string, SessionStatusInfo>>({})
   const [modelsBySession, setModelsBySession] = useState<Record<string, ModelInfo[]>>({})
   const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
-  const [subagentMessages, setSubagentMessages] = useState<Record<string, unknown[]>>({})
+  const [subagentMessages, setSubagentMessages] = useState<Record<string, ChatItem[]>>({})
   const [showSettings, setShowSettings] = useState(false)
   const [currentSettings, setCurrentSettings] = useState<Record<string, unknown>>({})
   // Global model list: start with well-known models, replace with SDK list when available
@@ -79,6 +79,68 @@ export function App() {
             }
           }
 
+          // Route subagent messages into SubAgentCard instead of main chat
+          const parentToolUseId = (msg as Record<string, unknown>).parent_tool_use_id as string | null | undefined
+          if (parentToolUseId) {
+            const key = `${sessionId}:${parentToolUseId}`
+            if (sdkType === 'assistant') {
+              const message = msg.message as Record<string, unknown>
+              const content = message.content as Array<Record<string, unknown>>
+              const msgUuid = (msg as Record<string, unknown>).uuid as string | undefined
+              for (const block of content) {
+                if (block.type === 'text') {
+                  setSubagentMessages(prev => ({
+                    ...prev,
+                    [key]: [...(prev[key] ?? []), { id: msgUuid ?? uuid(), type: 'assistant', content: block.text as string, timestamp: Date.now(), uuid: msgUuid }],
+                  }))
+                } else if (block.type === 'tool_use') {
+                  const toolName = block.name as string
+                  const toolId = block.id as string
+                  const toolInput = block.input as Record<string, unknown>
+                  setSubagentMessages(prev => ({
+                    ...prev,
+                    [key]: [...(prev[key] ?? []), {
+                      id: toolId, type: 'tool_use',
+                      content: { name: toolName, input: toolInput },
+                      timestamp: Date.now(), collapsed: true,
+                      agentId: toolName === 'Agent' ? toolId : undefined,
+                      toolInput,
+                    }],
+                  }))
+                }
+              }
+            } else if (sdkType === 'user') {
+              const message = msg.message as Record<string, unknown>
+              const content = message.content as Array<Record<string, unknown>>
+              for (const block of content) {
+                if (block.type === 'tool_result') {
+                  const toolUseId = block.tool_use_id as string
+                  // Check if this is the Agent tool's own result (toolUseId === parentToolUseId)
+                  // or a result for a tool inside the subagent
+                  if (toolUseId === parentToolUseId) {
+                    // This is the Agent tool's result — update main chat item
+                    store.updateChatItem(sessionId, toolUseId, { content: { result: block.content } })
+                  } else {
+                    // Result for a tool inside the subagent
+                    setSubagentMessages(prev => {
+                      const items = prev[key]
+                      if (!items) return prev
+                      return {
+                        ...prev,
+                        [key]: items.map(it =>
+                          it.id === toolUseId
+                            ? { ...it, content: { ...(it.content as Record<string, unknown>), result: block.content } }
+                            : it
+                        ),
+                      }
+                    })
+                  }
+                }
+              }
+            }
+            break
+          }
+
           if (sdkType === 'assistant') {
             // Don't clear loading here — keep showing activity until 'result' arrives
             const message = msg.message as Record<string, unknown>
@@ -121,6 +183,10 @@ export function App() {
                 // Skip if this is an echo of our own message
                 if (sentMessagesRef.current.has(text)) {
                   sentMessagesRef.current.delete(text)
+                  continue
+                }
+                // Skip system-injected prompts (skill content, system reminders, etc.)
+                if (/<system-reminder>|<EXTREMELY_IMPORTANT>|<skill-name>|<command-name>/.test(text) && text.length > 500) {
                   continue
                 }
                 const item: ChatItem = {
@@ -197,11 +263,15 @@ export function App() {
           const items: ChatItem[] = []
           // Map tool_use IDs to items so we can attach tool_results later
           const toolUseMap = new Map<string, ChatItem>()
+          // Subagent messages grouped by parent_tool_use_id
+          const subagentItems = new Map<string, ChatItem[]>()
+          const subagentToolUseMap = new Map<string, ChatItem>()
 
           for (const msg of messages) {
             const msgType = msg.type as string
             const message = msg.message as Record<string, unknown> | undefined
             if (!message) continue
+            const parentId = msg.parent_tool_use_id as string | null | undefined
 
             if (msgType === 'assistant') {
               const content = message.content as Array<Record<string, unknown>> | undefined
@@ -209,13 +279,20 @@ export function App() {
               const msgUuid = msg.uuid as string | undefined
               for (const block of content) {
                 if (block.type === 'text') {
-                  items.push({
+                  const item: ChatItem = {
                     id: msgUuid ?? uuid(),
                     type: 'assistant',
                     content: block.text as string,
                     timestamp: 0,
                     uuid: msgUuid,
-                  })
+                  }
+                  if (parentId) {
+                    const arr = subagentItems.get(parentId) ?? []
+                    arr.push(item)
+                    subagentItems.set(parentId, arr)
+                  } else {
+                    items.push(item)
+                  }
                 } else if (block.type === 'tool_use') {
                   const toolName = block.name as string
                   const toolId = block.id as string
@@ -229,20 +306,29 @@ export function App() {
                     agentId: toolName === 'Agent' ? toolId : undefined,
                     toolInput,
                   }
-                  items.push(item)
-                  toolUseMap.set(toolId, item)
+                  if (parentId) {
+                    const arr = subagentItems.get(parentId) ?? []
+                    arr.push(item)
+                    subagentItems.set(parentId, arr)
+                    subagentToolUseMap.set(toolId, item)
+                  } else {
+                    items.push(item)
+                    toolUseMap.set(toolId, item)
+                  }
                 }
               }
             } else if (msgType === 'system' && (msg as Record<string, unknown>).subtype === 'local_command_output') {
-              items.push({
-                id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
-                type: 'assistant',
-                content: (msg as Record<string, unknown>).content as string,
-                timestamp: 0,
-              })
+              if (!parentId) {
+                items.push({
+                  id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                  type: 'assistant',
+                  content: (msg as Record<string, unknown>).content as string,
+                  timestamp: 0,
+                })
+              }
             } else if (msgType === 'user') {
               const content = message.content
-              if (typeof content === 'string') {
+              if (!parentId && typeof content === 'string') {
                 items.push({
                   id: uuid(),
                   type: 'user',
@@ -251,7 +337,7 @@ export function App() {
                 })
               } else if (Array.isArray(content)) {
                 for (const block of content as Array<Record<string, unknown>>) {
-                  if (block.type === 'text') {
+                  if (block.type === 'text' && !parentId) {
                     items.push({
                       id: uuid(),
                       type: 'user',
@@ -259,8 +345,9 @@ export function App() {
                       timestamp: 0,
                     })
                   } else if (block.type === 'tool_result') {
-                    // Attach result to matching tool_use item
-                    const toolItem = toolUseMap.get(block.tool_use_id as string)
+                    const toolUseId = block.tool_use_id as string
+                    // Check subagent tool_use first, then main
+                    const toolItem = subagentToolUseMap.get(toolUseId) ?? toolUseMap.get(toolUseId)
                     if (toolItem) {
                       const existing = toolItem.content as Record<string, unknown>
                       toolItem.content = { ...existing, result: block.content }
@@ -272,6 +359,16 @@ export function App() {
           }
 
           store.setHistoryItems(sessionId, items)
+          // Merge subagent history into subagentMessages state
+          if (subagentItems.size > 0) {
+            setSubagentMessages(prev => {
+              const updated = { ...prev }
+              for (const [parentId, msgs] of subagentItems) {
+                updated[`${sessionId}:${parentId}`] = msgs
+              }
+              return updated
+            })
+          }
           break
         }
 
@@ -357,7 +454,7 @@ export function App() {
 
         case 'session_forked': {
           const newSessionId = data.newSessionId as string
-          store.addSession(newSessionId)
+          store.addSession(newSessionId, 'idle')
           store.setActive(newSessionId)
           send({ type: 'switch_session', sessionId: newSessionId })
           send({ type: 'list_commands', sessionId: newSessionId })
@@ -370,8 +467,43 @@ export function App() {
 
         case 'subagent_messages': {
           const { agentId, messages: agentMsgs } = data as { agentId: string; messages: unknown[] }
-          const sessionId = (data.sessionId as string | undefined) ?? store.activeSessionId ?? ''
-          setSubagentMessages(prev => ({ ...prev, [`${sessionId}:${agentId}`]: agentMsgs }))
+          const sid = (data.sessionId as string | undefined) ?? store.activeSessionId ?? ''
+          const key = `${sid}:${agentId}`
+          // Convert SDK SessionMessage format to ChatItem[]
+          // SDK format: { type: 'assistant'|'user', message: { content: [...] }, uuid, ... }
+          const items: ChatItem[] = []
+          for (const raw of agentMsgs) {
+            const m = raw as Record<string, unknown>
+            const msgType = m.type as string
+            const message = m.message as Record<string, unknown> | undefined
+            if (!message) continue
+            const content = message.content as Array<Record<string, unknown>> | undefined
+            if (!Array.isArray(content)) continue
+            const msgUuid = m.uuid as string | undefined
+            for (const block of content) {
+              if (block.type === 'text' && msgType === 'assistant') {
+                items.push({ id: msgUuid ?? uuid(), type: 'assistant', content: block.text as string, timestamp: 0, uuid: msgUuid })
+              } else if (block.type === 'tool_use') {
+                const toolName = block.name as string
+                const toolId = block.id as string
+                const toolInput = block.input as Record<string, unknown>
+                items.push({
+                  id: toolId, type: 'tool_use',
+                  content: { name: toolName, input: toolInput },
+                  timestamp: 0, collapsed: true,
+                  agentId: toolName === 'Agent' ? toolId : undefined,
+                  toolInput,
+                })
+              } else if (block.type === 'tool_result') {
+                const toolUseId = block.tool_use_id as string
+                const existing = items.find(it => it.id === toolUseId)
+                if (existing) {
+                  existing.content = { ...(existing.content as Record<string, unknown>), result: block.content }
+                }
+              }
+            }
+          }
+          setSubagentMessages(prev => ({ ...prev, [key]: items }))
           break
         }
 
@@ -426,9 +558,17 @@ export function App() {
   }, [])
 
   const handleConfirmNewSession = useCallback(
-    (cwd: string, model?: string) => {
+    (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[]) => {
       setShowNewSessionDialog(false)
-      send({ type: 'create_session', options: { cwd, ...(model ? { model } : {}) } })
+      send({
+        type: 'create_session',
+        options: {
+          cwd,
+          ...(model ? { model } : {}),
+          ...(permissionMode ? { permissionMode } : {}),
+          ...(executableArgs?.length ? { executableArgs } : {}),
+        },
+      })
     },
     [send],
   )
@@ -662,7 +802,7 @@ export function App() {
                 const total = contentRef.current?.offsetWidth
                 if (!total) return
                 const pctDelta = (delta / total) * 100
-                setArtifactRatio((r) => Math.min(80, Math.max(20, r - pctDelta)))
+                setArtifactRatio((r) => Math.min(80, Math.max(20, r + pctDelta)))
               }}
               side="left"
             />
