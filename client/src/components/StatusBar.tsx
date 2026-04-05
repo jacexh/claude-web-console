@@ -103,15 +103,16 @@ export function StatusBar({ status, loading, availableModels, onSetModel, effort
         </span>
       )}
 
-      {loading && (
-        <span className="ml-auto text-primary font-semibold animate-pulse">working...</span>
-      )}
-
-      {onOpenSettings && (
-        <button onClick={onOpenSettings} className="ml-auto text-slate-400 hover:text-slate-600" title="Session Settings">
-          <Settings size={13} />
-        </button>
-      )}
+      <span className="ml-auto flex items-center gap-2">
+        {loading && (
+          <span className="text-primary font-semibold animate-pulse">working...</span>
+        )}
+        {onOpenSettings && (
+          <button onClick={onOpenSettings} className="text-slate-400 hover:text-slate-600" title="Session Settings">
+            <Settings size={13} />
+          </button>
+        )}
+      </span>
     </div>
   )
 }
