@@ -100,6 +100,11 @@ export interface ElicitationResponseMessage {
   content?: Record<string, unknown>
 }
 
+export interface GetSessionSettingsMessage {
+  type: 'get_session_settings'
+  sessionId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -118,6 +123,7 @@ export type ClientMessage =
   | SetEffortLevelMessage
   | GetSubagentMessagesMessage
   | ElicitationResponseMessage
+  | GetSessionSettingsMessage
 
 // === Server → Client Messages ===
 
@@ -257,6 +263,12 @@ export interface ElicitationRequestMessage {
   url?: string
 }
 
+export interface SessionSettingsMessage {
+  type: 'session_settings'
+  sessionId: string
+  settings: Record<string, unknown>
+}
+
 export type ServerMessage =
   | SessionCreatedMessage
   | SessionListMessage
@@ -277,3 +289,4 @@ export type ServerMessage =
   | EffortLevelChangedMessage
   | SubagentMessagesMessage
   | ElicitationRequestMessage
+  | SessionSettingsMessage

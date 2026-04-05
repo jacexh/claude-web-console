@@ -699,6 +699,28 @@ export class SessionManager {
     }
   }
 
+  async getSessionSettings(sessionId: string): Promise<Record<string, unknown>> {
+    const session = this.sessions.get(sessionId)
+    if (!session) return { permissionMode: 'default', mcpServers: [], account: {} }
+
+    // Access query the same way as setModel/setEffortLevel
+    const query = (session as unknown as { query: {
+      mcpServerStatus: () => Promise<unknown[]>
+      initializationResult: () => Promise<unknown>
+    } }).query
+
+    const [mcpServers, initResult] = await Promise.all([
+      query.mcpServerStatus().catch(() => []),
+      query.initializationResult().catch(() => ({})),
+    ])
+
+    return {
+      permissionMode: 'default',
+      mcpServers,
+      account: initResult,
+    }
+  }
+
   /** Close all active sessions. Called on server shutdown. */
   closeAll(): void {
     for (const sessionId of [...this.sessions.keys()]) {

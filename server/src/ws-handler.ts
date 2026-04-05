@@ -276,6 +276,12 @@ export function createWsHandler(sessionManager: SessionManager) {
             sessionManager.resolveElicitation(msg.id, msg.action, msg.content as Record<string, unknown> | undefined)
             break
           }
+
+          case 'get_session_settings': {
+            const settings = await sessionManager.getSessionSettings(msg.sessionId)
+            send({ type: 'session_settings', sessionId: msg.sessionId, settings })
+            break
+          }
         }
       } catch (err) {
         send({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' })
