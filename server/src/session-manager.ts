@@ -710,14 +710,14 @@ export class SessionManager {
     } }).query
 
     const [mcpServers, initResult] = await Promise.all([
-      query.mcpServerStatus().catch(() => []),
-      query.initializationResult().catch(() => ({})),
+      query.mcpServerStatus().catch((err) => { console.error('[SessionManager] mcpServerStatus failed:', err); return [] }),
+      query.initializationResult().catch((err) => { console.error('[SessionManager] initializationResult failed:', err); return {} }),
     ])
 
     return {
       permissionMode: 'default',
       mcpServers,
-      account: initResult,
+      account: initResult, // SDK initializationResult: active account/auth info
     }
   }
 
