@@ -69,6 +69,12 @@ export interface RenameSessionMessage {
   title: string
 }
 
+export interface ForkSessionMessage {
+  type: 'fork_session'
+  sessionId: string
+  upToMessageId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -83,6 +89,7 @@ export type ClientMessage =
   | SetModelMessage
   | ListModelsMessage
   | RenameSessionMessage
+  | ForkSessionMessage
 
 // Server → Client
 export interface SessionInfo {
@@ -95,6 +102,12 @@ export interface SessionInfo {
 export interface ServerMessage {
   type: string
   [key: string]: unknown
+}
+
+export interface SessionForkedMessage {
+  type: 'session_forked'
+  sessionId: string
+  newSessionId: string
 }
 
 export interface ModelInfo {
@@ -112,4 +125,5 @@ export interface ChatItem {
   content: unknown
   timestamp: number
   collapsed?: boolean
+  uuid?: string
 }

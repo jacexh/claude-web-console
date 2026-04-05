@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Monitor, Paperclip, ArrowUp, HelpCircle, Pencil } from "lucide-react"
+import { Send, MessageSquare, Monitor, Paperclip, ArrowUp, HelpCircle, Pencil, GitBranch } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -29,6 +29,7 @@ interface ChatPanelProps {
   onRequestFiles: (prefix: string) => void
   commandList?: { name: string; description: string }[]
   onRename?: (sessionId: string, title: string) => void
+  onFork?: (sessionId: string, upToMessageId: string) => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -45,7 +46,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -165,7 +166,20 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       case "user":
         return <MessageBubble key={item.id} role="user" content={item.content as string} />
       case "assistant":
-        return <MessageBubble key={item.id} role="assistant" content={item.content as string} />
+        return (
+          <div key={item.id} className="relative group">
+            <MessageBubble role="assistant" content={item.content as string} />
+            {onFork && item.uuid && activeSessionId && (
+              <button
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-7 h-7 flex items-center justify-center bg-white border border-slate-200 rounded-md shadow-sm hover:bg-slate-50 cursor-pointer"
+                onClick={() => onFork(activeSessionId, item.uuid!)}
+                title="Fork from here"
+              >
+                <GitBranch size={14} className="text-slate-500" />
+              </button>
+            )}
+          </div>
+        )
       case "tool_use": {
         const data = item.content as {
           name: string
@@ -219,7 +233,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       default:
         return null
     }
-  }, [onPermissionDecision, onSend, onSelectArtifact])
+  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId])
 
   const renderedHistory = useMemo(() => history.map(renderChatItem), [history, renderChatItem])
   const renderedMessages = useMemo(() => messages.map(renderChatItem), [messages, renderChatItem])

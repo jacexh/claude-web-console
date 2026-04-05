@@ -78,14 +78,16 @@ export function App() {
             // Don't clear loading here — keep showing activity until 'result' arrives
             const message = msg.message as Record<string, unknown>
             const content = message.content as Array<Record<string, unknown>>
+            const msgUuid = msg.uuid as string | undefined
 
             for (const block of content) {
               if (block.type === 'text') {
                 const item: ChatItem = {
-                  id: (msg.uuid as string) ?? uuid(),
+                  id: msgUuid ?? uuid(),
                   type: 'assistant',
                   content: block.text as string,
                   timestamp: Date.now(),
+                  uuid: msgUuid,
                 }
                 store.addChatItem(sessionId, item)
               } else if (block.type === 'tool_use') {
@@ -327,6 +329,15 @@ export function App() {
           store.renameSession(data.sessionId as string, data.title as string)
           break
 
+        case 'session_forked': {
+          const newSessionId = data.newSessionId as string
+          store.addSession(newSessionId)
+          store.setActive(newSessionId)
+          send({ type: 'switch_session', sessionId: newSessionId })
+          send({ type: 'list_commands', sessionId: newSessionId })
+          break
+        }
+
         case 'default_cwd':
           setDefaultCwd(data.cwd as string)
           break
@@ -382,6 +393,13 @@ export function App() {
   const handleRenameSession = useCallback(
     (sessionId: string, title: string) => {
       send({ type: 'rename_session', sessionId, title })
+    },
+    [send],
+  )
+
+  const handleForkSession = useCallback(
+    (sessionId: string, upToMessageId: string) => {
+      send({ type: 'fork_session', sessionId, upToMessageId })
     },
     [send],
   )
@@ -531,6 +549,7 @@ export function App() {
             onRequestFiles={handleRequestFiles}
             commandList={commandList}
             onRename={handleRenameSession}
+            onFork={handleForkSession}
           />
         </div>
         {artifact && (
