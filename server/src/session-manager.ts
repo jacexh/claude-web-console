@@ -213,6 +213,24 @@ export class SessionManager {
 
   // --- Core methods ---
 
+  private buildOnElicitation(sessionIdRef: { current: string }) {
+    return async (request: { serverName: string; message: string; mode?: string; url?: string; requestedSchema?: Record<string, unknown> }, _options: { signal: AbortSignal }): Promise<ElicitationResult> => {
+      const id = `elicit-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      return new Promise<ElicitationResult>((resolve) => {
+        this.pendingElicitations.set(id, { resolve, sessionId: sessionIdRef.current })
+        this.broadcast(sessionIdRef.current, (l) => l.onMessage(sessionIdRef.current, {
+          type: 'elicitation_request',
+          id,
+          serverName: request.serverName,
+          message: request.message,
+          mode: request.mode,
+          requestedSchema: request.requestedSchema,
+          url: request.url,
+        } as unknown as SDKMessage))
+      })
+    }
+  }
+
   private buildCanUseTool(
     sessionIdRef: { current: string },
   ): SDKSessionOptions['canUseTool'] {
@@ -268,21 +286,7 @@ export class SessionManager {
       ...(options?.model ? { model: options.model } : {}),
       permissionMode: 'default',
       canUseTool: this.buildCanUseTool(sessionIdRef),
-      onElicitation: async (request: { serverName: string; message: string; mode?: string; url?: string; requestedSchema?: Record<string, unknown> }, _options: { signal: AbortSignal }) => {
-        const id = `elicit-${Date.now()}-${Math.random().toString(36).slice(2)}`
-        return new Promise<ElicitationResult>((resolve) => {
-          this.pendingElicitations.set(id, { resolve, sessionId: sessionIdRef.current })
-          this.broadcast(sessionIdRef.current, (l) => l.onMessage(sessionIdRef.current, {
-            type: 'elicitation_request',
-            id,
-            serverName: request.serverName,
-            message: request.message,
-            mode: request.mode,
-            requestedSchema: request.requestedSchema,
-            url: request.url,
-          } as unknown as SDKMessage))
-        })
-      },
+      onElicitation: this.buildOnElicitation(sessionIdRef),
       env: cleanEnv(cwd),
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
       executableArgs: getPluginDirArgs(),
@@ -561,11 +565,11 @@ export class SessionManager {
     }
   }
 
-  resolveElicitation(id: string, action: string, content?: Record<string, unknown>): void {
+  resolveElicitation(id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>): void {
     const pending = this.pendingElicitations.get(id)
     if (!pending) return
     this.pendingElicitations.delete(id)
-    pending.resolve({ action: action as 'accept' | 'decline' | 'cancel', content: content as ElicitationResult['content'] })
+    pending.resolve({ action, content: content as ElicitationResult['content'] })
   }
 
   async listSessions(): Promise<SessionInfo[]> {
@@ -632,21 +636,7 @@ export class SessionManager {
     const sessionOptions = {
       permissionMode: 'default',
       canUseTool: this.buildCanUseTool(resumeSessionIdRef),
-      onElicitation: async (request: { serverName: string; message: string; mode?: string; url?: string; requestedSchema?: Record<string, unknown> }, _options: { signal: AbortSignal }) => {
-        const id = `elicit-${Date.now()}-${Math.random().toString(36).slice(2)}`
-        return new Promise<ElicitationResult>((resolve) => {
-          this.pendingElicitations.set(id, { resolve, sessionId: resumeSessionIdRef.current })
-          this.broadcast(resumeSessionIdRef.current, (l) => l.onMessage(resumeSessionIdRef.current, {
-            type: 'elicitation_request',
-            id,
-            serverName: request.serverName,
-            message: request.message,
-            mode: request.mode,
-            requestedSchema: request.requestedSchema,
-            url: request.url,
-          } as unknown as SDKMessage))
-        })
-      },
+      onElicitation: this.buildOnElicitation(resumeSessionIdRef),
       env: cleanEnv(cwd),
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
       executableArgs: getPluginDirArgs(),
