@@ -46,10 +46,25 @@ process.env.HOST = host;
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { createRequire } from 'node:module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const serverEntry = join(__dirname, '..', 'server', 'src', 'index.ts');
-const tsxBin = join(__dirname, '..', 'node_modules', '.bin', 'tsx');
+
+// Find tsx binary: check local node_modules first, then resolve via require
+function findTsx() {
+  const local = join(__dirname, '..', 'node_modules', '.bin', 'tsx');
+  if (existsSync(local)) return local;
+  try {
+    const require = createRequire(import.meta.url);
+    const tsxMain = require.resolve('tsx/package.json');
+    return join(dirname(tsxMain), 'dist', 'cli.mjs');
+  } catch {
+    return 'tsx'; // fallback to PATH
+  }
+}
+const tsxBin = findTsx();
 
 const child = spawn(tsxBin, [serverEntry], {
   stdio: 'inherit',
