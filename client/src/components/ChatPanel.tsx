@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Terminal, ArrowUp, Square, PauseCircle, HelpCircle, Pencil, GitBranch } from "lucide-react"
+import { Send, MessageSquare, Terminal, ArrowUp, ArrowDown, Square, PauseCircle, HelpCircle, Pencil, GitBranch } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -62,8 +62,11 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleInput, setTitleInput] = useState("")
   const bottomRef = useRef<HTMLDivElement>(null)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isNearBottomRef = useRef(true)
+  const [hasNewMessages, setHasNewMessages] = useState(false)
 
   const slashCmd = getSlashCommand(input)
   const showCmdMenu = slashCmd != null
@@ -72,9 +75,32 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
   const atMention = !showCmdMenu ? getAtMention(input) : null
   const showFileMenu = atMention != null && fileList.length > 0
 
+  // Track whether user is near the bottom of the scroll area
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    const el = scrollAreaRef.current
+    if (!el) return
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el
+      const nearBottom = scrollHeight - scrollTop - clientHeight < 80
+      isNearBottomRef.current = nearBottom
+      if (nearBottom) setHasNewMessages(false)
+    }
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    } else {
+      setHasNewMessages(true)
+    }
   }, [messages, loading])
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    setHasNewMessages(false)
+  }, [])
 
   useEffect(() => {
     setMenuIndex(0)
@@ -427,7 +453,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       </header>
 
       {/* Chat area */}
-      <ScrollArea className="flex-1">
+      <ScrollArea ref={scrollAreaRef} className="flex-1">
         <div className="max-w-4xl mx-auto p-6 flex flex-col gap-2 pb-32">
           {history.length > 0 && (
             <>
@@ -456,6 +482,17 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           <div ref={bottomRef} />
         </div>
       </ScrollArea>
+
+      {/* New messages indicator */}
+      {hasNewMessages && (
+        <button
+          onClick={scrollToBottom}
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full shadow-lg hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-bottom-2"
+        >
+          <ArrowDown className="h-3 w-3" />
+          New messages
+        </button>
+      )}
 
       {/* Bottom input area */}
       <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-4">
