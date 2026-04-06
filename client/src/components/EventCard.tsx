@@ -15,12 +15,14 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react"
+import type { PermissionSuggestion } from "../types"
 
 export interface PermissionState {
   status: 'pending' | 'approved' | 'denied'
   title?: string
   description?: string
   hasSuggestions?: boolean
+  suggestions?: PermissionSuggestion[]
 }
 
 interface EventCardProps {
@@ -29,7 +31,7 @@ interface EventCardProps {
   input: Record<string, unknown>
   result?: unknown
   permission?: PermissionState
-  onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => void
+  onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: PermissionSuggestion[]) => void
   defaultCollapsed?: boolean
   onSelect?: () => void
 }
@@ -73,6 +75,8 @@ const defaultMeta = { icon: Wrench, headerBg: "bg-slate-200", bodyBg: "bg-slate-
 export const EventCard = memo(function EventCard({ toolUseId, toolName, input, result, permission, onPermissionDecision, defaultCollapsed = true, onSelect }: EventCardProps) {
   const [open, setOpen] = useState(!defaultCollapsed)
   const [localDecided, setLocalDecided] = useState<'approved' | 'denied' | null>(null)
+  const [editingRules, setEditingRules] = useState(false)
+  const [editedRules, setEditedRules] = useState<string[]>([])
   const decided = permission?.status === 'approved'
     ? 'approved'
     : permission?.status === 'denied'
@@ -93,10 +97,40 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
     if (next && onSelect) onSelect()
   }
 
-  const handleDecision = (approved: boolean, alwaysAllow?: boolean) => {
+  const handleDecision = (approved: boolean, alwaysAllow?: boolean, permissions?: PermissionSuggestion[]) => {
     if (!toolUseId || !onPermissionDecision) return
     setLocalDecided(approved ? 'approved' : 'denied')
-    onPermissionDecision(toolUseId, approved, alwaysAllow)
+    setEditingRules(false)
+    onPermissionDecision(toolUseId, approved, alwaysAllow, permissions)
+  }
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Extract all ruleContent strings from suggestions
+    const rules = (permission?.suggestions ?? [])
+      .flatMap(s => s.rules ?? [])
+      .map(r => r.ruleContent ?? '')
+    setEditedRules(rules)
+    setEditingRules(true)
+  }
+
+  const handleSubmitEdited = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    // Rebuild suggestions with edited ruleContent
+    const suggestions = permission?.suggestions ?? []
+    let ruleIdx = 0
+    const updated = suggestions.map(s => {
+      if (!s.rules) return s
+      return {
+        ...s,
+        rules: s.rules.map(r => {
+          const newContent = editedRules[ruleIdx] ?? r.ruleContent
+          ruleIdx++
+          return { ...r, ruleContent: newContent }
+        }),
+      }
+    })
+    handleDecision(true, true, updated)
   }
 
   return (
@@ -143,32 +177,68 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
 
           {/* Permission action bar */}
           {isPending && (
-            <div className="flex items-center justify-between px-4 py-2.5 bg-[#fcf1ce] border-b border-[#f3e4b0]">
-              <p className="text-sm text-yellow-900">
-                {permission.title || `Allow ${toolName}?`}
-              </p>
-              <div className="flex gap-2 shrink-0 ml-4">
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDecision(true) }}
-                  className="px-3 py-1 bg-[#f3e4b0] hover:bg-[#e8d596] text-yellow-900 text-sm font-medium rounded transition-colors"
-                >
-                  Allow
-                </button>
-                {permission.hasSuggestions && (
+            <div className="px-4 py-2.5 bg-[#fcf1ce] border-b border-[#f3e4b0] space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-yellow-900">
+                  {permission.title || `Allow ${toolName}?`}
+                </p>
+                <div className="flex gap-2 shrink-0 ml-4">
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDecision(true, true) }}
-                    className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-sm font-medium rounded transition-colors"
+                    onClick={(e) => { e.stopPropagation(); handleDecision(true) }}
+                    className="px-3 py-1 bg-[#f3e4b0] hover:bg-[#e8d596] text-yellow-900 text-sm font-medium rounded transition-colors"
                   >
-                    Always allow
+                    Allow
                   </button>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDecision(false) }}
-                  className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded border border-slate-200 transition-colors"
-                >
-                  Deny
-                </button>
+                  {permission.hasSuggestions && !editingRules && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDecision(true, true) }}
+                      className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-sm font-medium rounded transition-colors"
+                    >
+                      Always allow
+                    </button>
+                  )}
+                  {permission.hasSuggestions && !editingRules && (
+                    <button
+                      onClick={handleStartEdit}
+                      className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-sm font-medium rounded transition-colors"
+                    >
+                      Edit rule
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDecision(false) }}
+                    className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded border border-slate-200 transition-colors"
+                  >
+                    Deny
+                  </button>
+                </div>
               </div>
+              {editingRules && (
+                <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                  {editedRules.map((rule, i) => (
+                    <input
+                      key={i}
+                      value={rule}
+                      onChange={(e) => setEditedRules(prev => prev.map((r, j) => j === i ? e.target.value : r))}
+                      className="w-full px-2 py-1 text-xs font-mono bg-white border border-yellow-300 rounded focus:outline-none focus:border-blue-400"
+                    />
+                  ))}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={handleSubmitEdited}
+                      className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-sm font-medium rounded transition-colors"
+                    >
+                      Save & always allow
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditingRules(false) }}
+                      className="px-3 py-1 bg-white hover:bg-slate-50 text-slate-700 text-sm font-medium rounded border border-slate-200 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

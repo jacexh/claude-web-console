@@ -48,6 +48,8 @@ export function App() {
   const sentMessagesRef = useRef<Set<string>>(new Set())
   // Track cwd for pending session creation so we can attach it to the new session
   const pendingSessionCwdRef = useRef<string | null>(null)
+  // Buffer permission_requests that arrive before their tool_use sdk_message
+  const pendingPermissionsRef = useRef<Map<string, { permission: Record<string, unknown>; sessionId: string }>>(new Map())
 
   const updateSessionStatus = useCallback((sessionId: string, patch: Partial<SessionStatusInfo>) => {
     setStatusBySession((prev) => ({
@@ -103,11 +105,14 @@ export function App() {
                   const toolName = block.name as string
                   const toolId = block.id as string
                   const toolInput = block.input as Record<string, unknown>
+                  // Check if a permission_request arrived before this tool_use
+                  const pendingPerm = pendingPermissionsRef.current.get(toolId)
+                  if (pendingPerm) pendingPermissionsRef.current.delete(toolId)
                   setSubagentMessages(prev => ({
                     ...prev,
                     [key]: [...(prev[key] ?? []), {
                       id: toolId, type: 'tool_use',
-                      content: { name: toolName, input: toolInput },
+                      content: { name: toolName, input: toolInput, ...(pendingPerm?.permission ?? {}) },
                       timestamp: Date.now(), collapsed: true,
                       agentId: toolName === 'Agent' ? toolId : undefined,
                       toolInput,
@@ -167,10 +172,13 @@ export function App() {
                 const toolName = block.name as string
                 const toolId = block.id as string
                 const toolInput = block.input as Record<string, unknown>
+                // Check if a permission_request arrived before this tool_use
+                const pendingPerm = pendingPermissionsRef.current.get(toolId)
+                if (pendingPerm) pendingPermissionsRef.current.delete(toolId)
                 const item: ChatItem = {
                   id: toolId,
                   type: 'tool_use',
-                  content: { name: toolName, input: toolInput },
+                  content: { name: toolName, input: toolInput, ...(pendingPerm?.permission ?? {}) },
                   timestamp: Date.now(),
                   collapsed: true,
                   agentId: toolName === 'Agent' ? toolId : undefined,
@@ -254,17 +262,20 @@ export function App() {
                 title: data.title as string | undefined,
                 description: data.description as string | undefined,
                 hasSuggestions: data.hasSuggestions as boolean | undefined,
+                suggestions: data.suggestions as import('./types').PermissionSuggestion[] | undefined,
               },
             }
             const toolUseId = data.toolUseId as string
             // Try main chat items
             store.updateChatItem(sessionId, toolUseId, { content: permissionContent })
             // Also try subagent messages (tool_use may be stored there instead)
+            let foundInSubagent = false
             setSubagentMessages(prev => {
               for (const [key, items] of Object.entries(prev)) {
                 if (!key.startsWith(`${sessionId}:`)) continue
                 const idx = items.findIndex(it => it.id === toolUseId)
                 if (idx !== -1) {
+                  foundInSubagent = true
                   const updated = [...items]
                   const item = updated[idx]
                   updated[idx] = {
@@ -276,6 +287,14 @@ export function App() {
               }
               return prev
             })
+            // If tool_use hasn't arrived yet (SDK calls canUseTool before yielding
+            // the assistant message to the stream), buffer it for later
+            if (!foundInSubagent) {
+              const mainItems = store.messagesBySession[sessionId] ?? []
+              if (!mainItems.find(it => it.id === toolUseId)) {
+                pendingPermissionsRef.current.set(toolUseId, { permission: permissionContent, sessionId })
+              }
+            }
           }
           break
         }
@@ -717,8 +736,8 @@ export function App() {
   )
 
   const handlePermissionDecision = useCallback(
-    (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => {
-      send({ type: 'permission_decision', toolUseId, approved, alwaysAllow })
+    (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('./types').PermissionSuggestion[]) => {
+      send({ type: 'permission_decision', toolUseId, approved, alwaysAllow, updatedPermissions })
     },
     [send],
   )

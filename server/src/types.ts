@@ -28,6 +28,7 @@ export interface PermissionDecisionMessage {
   approved: boolean
   reason?: string
   alwaysAllow?: boolean
+  updatedPermissions?: unknown[]
 }
 
 export interface ListSessionsMessage {

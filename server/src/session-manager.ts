@@ -33,6 +33,7 @@ export type PermissionMeta = {
   title?: string
   description?: string
   hasSuggestions?: boolean
+  suggestions?: unknown[]
 }
 
 export type SessionListener = {
@@ -271,7 +272,7 @@ export class SessionManager {
       }
 
       const sessionId = sessionIdRef.current
-      this.log.info({ toolName, toolUseID, agentID, sessionId }, 'canUseTool: awaiting permission')
+      this.log.info({ toolName, toolUseID, agentID, sessionId, hasSuggestions: (suggestions?.length ?? 0) > 0 }, 'canUseTool: awaiting permission')
 
       // AskUserQuestion: keep canUseTool pending (SDK waits for answer)
       // but don't send permission_request (no PermissionCard).
@@ -305,6 +306,7 @@ export class SessionManager {
               title,
               description,
               hasSuggestions: (suggestions?.length ?? 0) > 0,
+              suggestions: suggestions as unknown[] | undefined,
             }),
           )
         }
@@ -606,14 +608,23 @@ export class SessionManager {
     this.startStreamConsumer(sessionId, session)
   }
 
-  resolvePermission(toolUseId: string, approved: boolean, reason?: string, alwaysAllow?: boolean): void {
+  resolvePermission(toolUseId: string, approved: boolean, reason?: string, alwaysAllow?: boolean, clientPermissions?: unknown[]): void {
     const pending = this.pendingPermissions.get(toolUseId)
     if (!pending) {
       this.log.warn({ toolUseId }, 'resolvePermission: no pending permission found')
       return
     }
-    this.log.info({ toolUseId, approved, sessionId: pending.sessionId }, 'resolvePermission')
-    const updatedPermissions = (approved && alwaysAllow) ? pending.suggestions : undefined
+    // Use client-edited permissions if provided, otherwise fall back to SDK suggestions
+    const updatedPermissions = (approved && alwaysAllow)
+      ? ((clientPermissions as import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[] | undefined) ?? pending.suggestions)
+      : undefined
+    this.log.info({
+      toolUseId,
+      approved,
+      alwaysAllow,
+      sessionId: pending.sessionId,
+      updatedPermissions: JSON.stringify(updatedPermissions)?.slice(0, 200),
+    }, 'resolvePermission')
     pending.resolve(approved, reason, updatedPermissions)
     this.pendingPermissions.delete(toolUseId)
 

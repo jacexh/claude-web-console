@@ -15,12 +15,25 @@ export interface SwitchSessionMessage {
   sessionId: string
 }
 
+export interface PermissionRule {
+  toolName: string
+  ruleContent?: string
+}
+
+export interface PermissionSuggestion {
+  type: string
+  rules?: PermissionRule[]
+  behavior?: string
+  destination?: string
+}
+
 export interface PermissionDecisionMessage {
   type: 'permission_decision'
   toolUseId: string
   approved: boolean
   reason?: string
   alwaysAllow?: boolean
+  updatedPermissions?: PermissionSuggestion[]
 }
 
 export interface ListSessionsMessage {

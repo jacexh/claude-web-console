@@ -209,6 +209,7 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
               msg.approved,
               msg.reason,
               msg.alwaysAllow,
+              msg.updatedPermissions as unknown[] | undefined,
             )
             break
           }

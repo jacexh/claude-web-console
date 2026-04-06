@@ -18,7 +18,7 @@ interface ChatPanelProps {
   history: ChatItem[]
   loading: boolean
   onSend: (content: string) => void
-  onPermissionDecision: (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => void
+  onPermissionDecision: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('../types').PermissionSuggestion[]) => void
   onSelectArtifact: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
   activeSessionId: string | null
   activeSessionSummary?: string

@@ -16,7 +16,7 @@ interface SubAgentCardProps {
   allSubagentMessages?: Record<string, ChatItem[]>
   onExpand: (sessionId: string, agentId: string) => void
   onSelectArtifact?: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
-  onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => void
+  onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('../types').PermissionSuggestion[]) => void
 }
 
 export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision }: SubAgentCardProps) {
