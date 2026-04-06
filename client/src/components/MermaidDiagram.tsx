@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 let idCounter = 0
 let mermaidPromise: Promise<typeof import("mermaid")> | null = null
@@ -18,31 +18,27 @@ function loadMermaid() {
 }
 
 export function MermaidDiagram({ chart }: { chart: string }) {
-  const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [svgHtml, setSvgHtml] = useState<string | null>(null)
 
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const id = `mermaid-${++idCounter}`
     let cancelled = false
+
+    setSvgHtml(null)
+    setError(null)
 
     loadMermaid().then((mod) => {
       if (cancelled) return
+      const id = `mermaid-${++idCounter}`
       return mod.default.render(id, chart.trim())
     }).then((result) => {
-      if (!cancelled && el && result) {
-        el.innerHTML = result.svg
-        setError(null)
+      if (!cancelled && result) {
+        setSvgHtml(result.svg)
       }
     }).catch((err) => {
       if (!cancelled) {
         setError(String(err?.message ?? err))
       }
-    }).finally(() => {
-      if (!cancelled) setLoading(false)
     })
 
     return () => { cancelled = true }
@@ -57,8 +53,12 @@ export function MermaidDiagram({ chart }: { chart: string }) {
   }
 
   return (
-    <div ref={containerRef} className="flex justify-center py-2 [&_svg]:max-w-full">
-      {loading && <span className="text-xs text-slate-400 animate-pulse">Loading diagram...</span>}
+    <div className="flex justify-center py-2 [&_svg]:max-w-full">
+      {svgHtml == null ? (
+        <span className="text-xs text-slate-400 animate-pulse">Loading diagram...</span>
+      ) : (
+        <div dangerouslySetInnerHTML={{ __html: svgHtml }} />
+      )}
     </div>
   )
 }
