@@ -6,6 +6,17 @@ import { Plus, Zap, ChevronsLeft, HelpCircle, Settings, ChevronLeft, ChevronRigh
 import type { SessionInfo } from "../types"
 
 const PAGE_SIZE = 20
+
+function fallbackCopy(text: string) {
+  const ta = document.createElement("textarea")
+  ta.value = text
+  ta.style.position = "fixed"
+  ta.style.opacity = "0"
+  document.body.appendChild(ta)
+  ta.select()
+  document.execCommand("copy")
+  document.body.removeChild(ta)
+}
 const PROJECT_STORAGE_KEY = "cc-web-console:selectedProject"
 
 interface SessionListProps {
@@ -338,7 +349,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
                         title={`Click to copy: ${session.sessionId}`}
                         onClick={(e) => {
                           e.stopPropagation()
-                          navigator.clipboard.writeText(session.sessionId)
+                          fallbackCopy(session.sessionId)
                         }}
                       >{session.sessionId.slice(0, 8)}</span>
                     </div>
