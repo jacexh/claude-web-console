@@ -136,18 +136,13 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
     <div className="w-full h-full flex flex-col bg-white border-r border-slate-200">
       {/* Sidebar header */}
       <div className="h-14 flex items-center px-4 border-b border-slate-100 justify-between">
-        <div className="flex items-center gap-2">
-          <a
-            href="https://github.com/jacexh/talgent/tree/master/claude-web-console"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-          >
-            <div className="w-6 h-6 bg-primary-container rounded text-primary flex items-center justify-center">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 bg-primary-container rounded text-primary flex items-center justify-center shrink-0">
               <Zap className="w-4 h-4" />
             </div>
-            <span className="font-semibold text-slate-700">Claude Web Console</span>
-          </a>
+            <span className="font-semibold text-slate-700 truncate">Claude Web Console</span>
+          </div>
           <div
             className={cn(
               "h-1.5 w-1.5 rounded-full ml-1",
