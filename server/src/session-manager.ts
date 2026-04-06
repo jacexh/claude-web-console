@@ -14,6 +14,7 @@ import {
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
+import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
 
 type PermissionResolver = {
@@ -118,6 +119,7 @@ function isSessionLockedExternally(sessionId: string): boolean {
 }
 
 export class SessionManager {
+  private log: FastifyBaseLogger
   private sessions = new Map<string, SDKSession>()
   private pendingPermissions = new Map<string, PermissionResolver>()
   private pendingElicitations = new Map<string, { resolve: (result: ElicitationResult) => void; sessionId: string }>()
@@ -133,6 +135,10 @@ export class SessionManager {
   private sessionCommands = new Map<string, { name: string; description: string }[]>()
   // Active stream (Query) references for control requests like setModel
   private activeQueries = new Map<string, AsyncGenerator<SDKMessage, void>>()
+
+  constructor(log: FastifyBaseLogger) {
+    this.log = log
+  }
 
   // --- Pub/Sub methods ---
 
@@ -192,7 +198,7 @@ export class SessionManager {
     if (!listeners) return
     for (const l of listeners) {
       try { fn(l) } catch (err) {
-        console.error('[SessionManager] Listener error:', err)
+        this.log.error({ err, sessionId }, 'Listener error')
       }
     }
   }
@@ -324,7 +330,7 @@ export class SessionManager {
         } as unknown as SDKMessage))
       }
     }).catch((err) => {
-      console.error('[SessionManager] Failed to fetch models:', err)
+      this.log.error({ err, sessionId }, 'Failed to fetch models')
     })
   }
 
@@ -403,9 +409,9 @@ export class SessionManager {
           }
           if (msgAny.type === 'result') {
             if (msgAny.is_error) {
-              console.error('[SessionManager] SDK error result:', JSON.stringify(msg).slice(0, 500))
+              this.log.error({ result: JSON.stringify(msg).slice(0, 500) }, 'SDK error result')
             } else {
-              console.log('[SessionManager] Turn complete, cost:', (msgAny as Record<string, unknown>).total_cost_usd)
+              this.log.info({ cost: (msgAny as Record<string, unknown>).total_cost_usd }, 'Turn complete')
             }
           }
 
@@ -454,7 +460,7 @@ export class SessionManager {
     } catch (err) {
       // AbortError is expected when session is closed
       if (!(err instanceof Error && err.name === 'AbortError')) {
-        console.error('[SessionManager] Stream error:', err)
+        this.log.error({ err }, 'Stream error')
       }
     } finally {
       try {
@@ -606,7 +612,7 @@ export class SessionManager {
       const messages = await getSessionMessages(sessionId, { dir: cwd })
       return messages
     } catch (err) {
-      console.error('[SessionManager] Failed to load history for', sessionId, err)
+      this.log.error({ err, sessionId }, 'Failed to load history')
       return []
     }
   }
@@ -616,7 +622,7 @@ export class SessionManager {
     try {
       return await sdkGetSubagentMessages(sessionId, agentId, { dir: cwd })
     } catch (err) {
-      console.error('[SessionManager] Failed to load subagent messages for', sessionId, agentId, err)
+      this.log.error({ err, sessionId, agentId }, 'Failed to load subagent messages')
       return []
     }
   }
@@ -721,8 +727,8 @@ export class SessionManager {
     } }).query
 
     const [mcpServers, initResult] = await Promise.all([
-      query.mcpServerStatus().catch((err) => { console.error('[SessionManager] mcpServerStatus failed:', err); return [] }),
-      query.initializationResult().catch((err) => { console.error('[SessionManager] initializationResult failed:', err); return {} }),
+      query.mcpServerStatus().catch((err) => { this.log.error({ err, sessionId }, 'mcpServerStatus failed'); return [] }),
+      query.initializationResult().catch((err) => { this.log.error({ err, sessionId }, 'initializationResult failed'); return {} }),
     ])
 
     return {
@@ -735,7 +741,7 @@ export class SessionManager {
   /** Close all active sessions. Called on server shutdown. */
   closeAll(): void {
     for (const sessionId of [...this.sessions.keys()]) {
-      console.log('[SessionManager] Shutting down session', sessionId)
+      this.log.info({ sessionId }, 'Shutting down session')
       this.closeSession(sessionId)
     }
   }

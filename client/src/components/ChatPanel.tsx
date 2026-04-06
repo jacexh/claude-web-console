@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Monitor, Paperclip, ArrowUp, HelpCircle, Pencil, GitBranch } from "lucide-react"
+import { Send, MessageSquare, Terminal, ArrowUp, HelpCircle, Pencil, GitBranch } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -332,7 +332,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       <header className="h-14 shrink-0 border-b border-slate-100 flex items-center justify-between px-6 bg-white z-10">
         <div className="flex items-center gap-3">
           <div className="w-6 h-6 rounded bg-slate-100 flex items-center justify-center text-muted-foreground">
-            <Monitor className="w-4 h-4" />
+            <Terminal className="w-4 h-4" />
           </div>
           {editingTitle ? (
             <input
@@ -457,7 +457,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
                     : "border-slate-300 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary"
                 }`}>
                   <div className="text-slate-400 shrink-0 mb-0.5">
-                    <Monitor className="w-5 h-5" />
+                    <Terminal className="w-5 h-5" />
                   </div>
                   <textarea
                     ref={textareaRef}
@@ -475,12 +475,6 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
                     className="flex-1 bg-transparent border-none outline-none text-foreground text-sm font-sans resize-none leading-relaxed placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 p-0"
                     style={{ maxHeight: 200 }}
                   />
-                  <button
-                    className="text-slate-400 hover:text-slate-600 shrink-0 mb-0.5"
-                    tabIndex={-1}
-                  >
-                    <Paperclip className="w-5 h-5 rotate-45" />
-                  </button>
                   <button
                     onClick={handleSubmit}
                     disabled={!input.trim() || loading}

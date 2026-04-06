@@ -2,10 +2,11 @@ import type { WebSocket } from '@fastify/websocket'
 import { randomUUID } from 'node:crypto'
 import { readdir, mkdir } from 'node:fs/promises'
 import { join, resolve, relative, basename, dirname } from 'node:path'
+import type { FastifyBaseLogger } from 'fastify'
 import type { SessionManager, PermissionMeta, SessionListener } from './session-manager.js'
 import type { ClientMessage, ServerMessage, FileEntry, EffortLevel } from './types.js'
 
-export function createWsHandler(sessionManager: SessionManager) {
+export function createWsHandler(sessionManager: SessionManager, log: FastifyBaseLogger) {
   return async function handleConnection(socket: WebSocket): Promise<void> {
     const listenerId = randomUUID()
     let alive = true
@@ -182,7 +183,7 @@ export function createWsHandler(sessionManager: SessionManager) {
             // Subscribe for live updates (idempotent via listener dedup)
             sessionManager.subscribe(msg.sessionId, makeListener(msg.sessionId))
             await sessionManager.sendMessage(msg.sessionId, msg.content)
-            console.log('[ws] Message sent to session', msg.sessionId)
+            log.info({ sessionId: msg.sessionId }, 'Message sent to session')
             break
           }
 

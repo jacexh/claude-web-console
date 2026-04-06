@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function main(): Promise<void> {
   const app = Fastify({ logger: true })
+  const log = app.log
 
   await app.register(websocket)
 
@@ -22,8 +23,8 @@ async function main(): Promise<void> {
     decorateReply: true,
   })
 
-  const sessionManager = new SessionManager()
-  const wsHandler = createWsHandler(sessionManager)
+  const sessionManager = new SessionManager(log)
+  const wsHandler = createWsHandler(sessionManager, log)
 
   app.get('/ws', { websocket: true }, (socket) => {
     wsHandler(socket)
@@ -36,7 +37,7 @@ async function main(): Promise<void> {
 
   // Graceful shutdown: close all SDK processes before exit
   function shutdown() {
-    console.log('[Server] Shutting down, closing all sessions...')
+    log.info('Shutting down, closing all sessions...')
     sessionManager.closeAll()
     process.exit(0)
   }
@@ -46,7 +47,11 @@ async function main(): Promise<void> {
   const port = parseInt(process.env.PORT ?? '3000', 10)
   const host = process.env.HOST ?? '0.0.0.0'
   await app.listen({ port, host })
-  console.log(`Claude Web Console server running on http://localhost:${port}`)
+  log.info({ port, host }, 'Claude Web Console server running')
 }
 
-main().catch(console.error)
+main().catch((err) => {
+  // Logger not yet available if Fastify creation failed
+  process.stderr.write(JSON.stringify({ level: 60, msg: 'Fatal startup error', err: String(err), time: Date.now() }) + '\n')
+  process.exit(1)
+})
