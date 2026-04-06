@@ -76,7 +76,7 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
   const [open, setOpen] = useState(!defaultCollapsed)
   const [localDecided, setLocalDecided] = useState<'approved' | 'denied' | null>(null)
   const [editingRules, setEditingRules] = useState(false)
-  const [editedRules, setEditedRules] = useState<string[]>([])
+  const [editedRules, setEditedRules] = useState<{ toolName: string; ruleContent: string }[]>([])
   const decided = permission?.status === 'approved'
     ? 'approved'
     : permission?.status === 'denied'
@@ -106,30 +106,56 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
 
   const handleStartEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Extract all ruleContent strings from suggestions
-    const rules = (permission?.suggestions ?? [])
-      .flatMap(s => s.rules ?? [])
-      .map(r => r.ruleContent ?? '')
+    // Extract rules with toolName, deduplicate by toolName+ruleContent
+    const seen = new Set<string>()
+    const rules: { toolName: string; ruleContent: string }[] = []
+    for (const s of permission?.suggestions ?? []) {
+      for (const r of s.rules ?? []) {
+        const key = `${r.toolName}:${r.ruleContent ?? ''}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          rules.push({ toolName: r.toolName, ruleContent: r.ruleContent ?? '' })
+        }
+      }
+    }
     setEditedRules(rules)
     setEditingRules(true)
   }
 
   const handleSubmitEdited = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Rebuild suggestions with edited ruleContent
+    // Rebuild suggestions with edited ruleContent, deduplicating
     const suggestions = permission?.suggestions ?? []
-    let ruleIdx = 0
+    const editMap = new Map<string, string>() // original key → edited content
+    const origRules: { toolName: string; ruleContent: string }[] = []
+    const seen = new Set<string>()
+    for (const s of suggestions) {
+      for (const r of s.rules ?? []) {
+        const key = `${r.toolName}:${r.ruleContent ?? ''}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          origRules.push({ toolName: r.toolName, ruleContent: r.ruleContent ?? '' })
+        }
+      }
+    }
+    origRules.forEach((orig, i) => {
+      editMap.set(`${orig.toolName}:${orig.ruleContent}`, editedRules[i]?.ruleContent ?? orig.ruleContent)
+    })
+    // Apply edits back, skipping duplicates
+    const usedKeys = new Set<string>()
     const updated = suggestions.map(s => {
       if (!s.rules) return s
-      return {
-        ...s,
-        rules: s.rules.map(r => {
-          const newContent = editedRules[ruleIdx] ?? r.ruleContent
-          ruleIdx++
-          return { ...r, ruleContent: newContent }
-        }),
-      }
-    })
+      const newRules = s.rules.filter(r => {
+        const key = `${r.toolName}:${r.ruleContent ?? ''}`
+        if (usedKeys.has(key)) return false // skip duplicate
+        usedKeys.add(key)
+        return true
+      }).map(r => ({
+        ...r,
+        ruleContent: editMap.get(`${r.toolName}:${r.ruleContent ?? ''}`) ?? r.ruleContent,
+      }))
+      return { ...s, rules: newRules }
+    }).filter(s => !s.rules || s.rules.length > 0)
     handleDecision(true, true, updated)
   }
 
@@ -216,12 +242,14 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
               {editingRules && (
                 <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
                   {editedRules.map((rule, i) => (
-                    <input
-                      key={i}
-                      value={rule}
-                      onChange={(e) => setEditedRules(prev => prev.map((r, j) => j === i ? e.target.value : r))}
-                      className="w-full px-2 py-1 text-xs font-mono bg-white border border-yellow-300 rounded focus:outline-none focus:border-blue-400"
-                    />
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-yellow-800 shrink-0 w-12">{rule.toolName}</span>
+                      <input
+                        value={rule.ruleContent}
+                        onChange={(e) => setEditedRules(prev => prev.map((r, j) => j === i ? { ...r, ruleContent: e.target.value } : r))}
+                        className="flex-1 px-2 py-1 text-xs font-mono bg-white border border-yellow-300 rounded focus:outline-none focus:border-blue-400"
+                      />
+                    </div>
                   ))}
                   <div className="flex gap-2 pt-1">
                     <button
