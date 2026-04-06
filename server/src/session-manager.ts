@@ -175,6 +175,7 @@ export class SessionManager {
       }
     }
     if (listeners.size === 0) {
+      this.denyOrphanedPending(sessionId)
       this.scheduleIdleClose(sessionId)
     }
   }
@@ -188,14 +189,35 @@ export class SessionManager {
         }
       }
       if (listeners.size === 0) {
+        this.denyOrphanedPending(sessionId)
         this.scheduleIdleClose(sessionId)
+      }
+    }
+  }
+
+  /** Deny all pending permissions/elicitations for a session when no listeners remain */
+  private denyOrphanedPending(sessionId: string): void {
+    for (const [id, entry] of this.pendingPermissions) {
+      if (entry.sessionId === sessionId) {
+        this.log.warn({ sessionId, toolUseId: id }, 'Denying orphaned permission (no listeners)')
+        entry.resolve(false, 'All listeners disconnected')
+        this.pendingPermissions.delete(id)
+      }
+    }
+    for (const [id, entry] of this.pendingElicitations) {
+      if (entry.sessionId === sessionId) {
+        entry.resolve({ action: 'cancel' })
+        this.pendingElicitations.delete(id)
       }
     }
   }
 
   private broadcast(sessionId: string, fn: (listener: SessionListener) => void): void {
     const listeners = this.sessionListeners.get(sessionId)
-    if (!listeners) return
+    if (!listeners || listeners.size === 0) {
+      this.log.warn({ sessionId }, 'Broadcast: no listeners')
+      return
+    }
     for (const l of listeners) {
       try { fn(l) } catch (err) {
         this.log.error({ err, sessionId }, 'Listener error')
@@ -244,8 +266,12 @@ export class SessionManager {
       // Auto-allow non-dangerous tools that don't need user approval
       const autoAllow = new Set(['TaskCreate', 'TaskUpdate', 'TaskGet', 'TaskList'])
       if (autoAllow.has(toolName)) {
+        this.log.info({ toolName, toolUseID, agentID }, 'canUseTool: auto-allowed')
         return { behavior: 'allow' as const, updatedInput: input as Record<string, unknown> }
       }
+
+      const sessionId = sessionIdRef.current
+      this.log.info({ toolName, toolUseID, agentID, sessionId }, 'canUseTool: awaiting permission')
 
       // AskUserQuestion: keep canUseTool pending (SDK waits for answer)
       // but don't send permission_request (no PermissionCard).
@@ -255,6 +281,7 @@ export class SessionManager {
       return new Promise<PermissionResult>((resolve) => {
         this.pendingPermissions.set(toolUseID, {
           resolve: (approved: boolean, reason?: string, updatedPermissions?) => {
+            this.log.info({ toolName, toolUseID, approved, reason }, 'canUseTool: resolved')
             if (approved) {
               resolve({
                 behavior: 'allow',
@@ -265,13 +292,15 @@ export class SessionManager {
               resolve({ behavior: 'deny', message: reason ?? 'User denied' })
             }
           },
-          sessionId: sessionIdRef.current,
+          sessionId,
           suggestions,
         })
         // Only send permission_request for real permission prompts, not questions
         if (!isQuestion) {
-          this.broadcast(sessionIdRef.current, (l) =>
-            l.onPermissionRequest(sessionIdRef.current, toolUseID, toolName, input as Record<string, unknown>, {
+          const listeners = this.sessionListeners.get(sessionId)
+          this.log.info({ toolUseID, toolName, sessionId, listenerCount: listeners?.size ?? 0 }, 'canUseTool: broadcasting permission_request')
+          this.broadcast(sessionId, (l) =>
+            l.onPermissionRequest(sessionId, toolUseID, toolName, input as Record<string, unknown>, {
               agentId: agentID,
               title,
               description,
@@ -355,6 +384,7 @@ export class SessionManager {
       // SDK's stream() ends after each turn (on "result" message).
       // Loop to re-enter stream() for subsequent turns.
       while (true) {
+        this.log.info({ sessionId: currentSessionId }, 'consumeStream: entering stream()')
         const query = session.stream()
         // Store query reference so control requests (setModel etc.) can use it
         try {
@@ -364,6 +394,13 @@ export class SessionManager {
 
         for await (const msg of query) {
           const msgAny = msg as Record<string, unknown>
+          this.log.info({
+            type: msgAny.type,
+            subtype: msgAny.subtype,
+            parentToolUseId: msgAny.parent_tool_use_id,
+            sessionId: currentSessionId,
+            message: JSON.stringify(msg).slice(0, 50),
+          }, 'Stream message received')
 
           // Fetch models once after stream is active (works for both new and resumed sessions)
           if (!modelsFetched) {
@@ -450,6 +487,7 @@ export class SessionManager {
           this.runningSessionIds.add(sessionId)
           this.broadcast(sessionId, (l) => l.onMessage(sessionId, msg))
         }
+        this.log.info({ sessionId: currentSessionId }, 'consumeStream: stream() ended (turn complete)')
         // Check if session was closed while we were streaming
         let sessionId: string
         try { sessionId = session.sessionId } catch { break }
@@ -546,6 +584,7 @@ export class SessionManager {
   }
 
   async sendMessage(sessionId: string, content: string): Promise<void> {
+    this.log.info({ sessionId, content: content.slice(0, 50) }, 'sendMessage: sending to SDK')
     const session = this.sessions.get(sessionId)
     if (!session) {
       throw new Error(`Session ${sessionId} not found`)
@@ -569,16 +608,19 @@ export class SessionManager {
 
   resolvePermission(toolUseId: string, approved: boolean, reason?: string, alwaysAllow?: boolean): void {
     const pending = this.pendingPermissions.get(toolUseId)
-    if (pending) {
-      const updatedPermissions = (approved && alwaysAllow) ? pending.suggestions : undefined
-      pending.resolve(approved, reason, updatedPermissions)
-      this.pendingPermissions.delete(toolUseId)
-
-      // Broadcast permission decision to all listeners
-      this.broadcast(pending.sessionId, (l) => l.onMessage(pending.sessionId, {
-        type: 'permission_decided', toolUseId, approved,
-      } as unknown as SDKMessage))
+    if (!pending) {
+      this.log.warn({ toolUseId }, 'resolvePermission: no pending permission found')
+      return
     }
+    this.log.info({ toolUseId, approved, sessionId: pending.sessionId }, 'resolvePermission')
+    const updatedPermissions = (approved && alwaysAllow) ? pending.suggestions : undefined
+    pending.resolve(approved, reason, updatedPermissions)
+    this.pendingPermissions.delete(toolUseId)
+
+    // Broadcast permission decision to all listeners
+    this.broadcast(pending.sessionId, (l) => l.onMessage(pending.sessionId, {
+      type: 'permission_decided', toolUseId, approved,
+    } as unknown as SDKMessage))
   }
 
   resolveElicitation(id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>): void {

@@ -244,6 +244,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               allSubagentMessages={subagentMessages}
               onExpand={onGetSubagentMessages}
               onSelectArtifact={onSelectArtifact}
+              onPermissionDecision={onPermissionDecision}
             />
           )
         }

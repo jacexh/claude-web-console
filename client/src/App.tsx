@@ -248,16 +248,33 @@ export function App() {
         case 'permission_request': {
           const sessionId = (data.sessionId as string) ?? store.activeSessionId
           if (sessionId) {
-            // Merge permission state into the existing tool_use card
-            store.updateChatItem(sessionId, data.toolUseId as string, {
-              content: {
-                permission: {
-                  status: 'pending' as const,
-                  title: data.title as string | undefined,
-                  description: data.description as string | undefined,
-                  hasSuggestions: data.hasSuggestions as boolean | undefined,
-                },
+            const permissionContent = {
+              permission: {
+                status: 'pending' as const,
+                title: data.title as string | undefined,
+                description: data.description as string | undefined,
+                hasSuggestions: data.hasSuggestions as boolean | undefined,
               },
+            }
+            const toolUseId = data.toolUseId as string
+            // Try main chat items
+            store.updateChatItem(sessionId, toolUseId, { content: permissionContent })
+            // Also try subagent messages (tool_use may be stored there instead)
+            setSubagentMessages(prev => {
+              for (const [key, items] of Object.entries(prev)) {
+                if (!key.startsWith(`${sessionId}:`)) continue
+                const idx = items.findIndex(it => it.id === toolUseId)
+                if (idx !== -1) {
+                  const updated = [...items]
+                  const item = updated[idx]
+                  updated[idx] = {
+                    ...item,
+                    content: { ...(item.content as Record<string, unknown>), ...permissionContent },
+                  }
+                  return { ...prev, [key]: updated }
+                }
+              }
+              return prev
             })
           }
           break
@@ -432,16 +449,30 @@ export function App() {
         case 'permission_decided': {
           const toolUseId = data.toolUseId as string
           const approved = data.approved as boolean
+          const decidedContent = { permission: { status: approved ? 'approved' as const : 'denied' as const } }
+          // Try main chat items
           for (const [sessionId, items] of Object.entries(store.messagesBySession)) {
             if (items.find((i) => i.id === toolUseId)) {
-              store.updateChatItem(sessionId, toolUseId, {
-                content: {
-                  permission: { status: approved ? 'approved' : 'denied' },
-                },
-              })
+              store.updateChatItem(sessionId, toolUseId, { content: decidedContent })
               break
             }
           }
+          // Also try subagent messages
+          setSubagentMessages(prev => {
+            for (const [key, items] of Object.entries(prev)) {
+              const idx = items.findIndex(it => it.id === toolUseId)
+              if (idx !== -1) {
+                const updated = [...items]
+                const item = updated[idx]
+                updated[idx] = {
+                  ...item,
+                  content: { ...(item.content as Record<string, unknown>), ...decidedContent },
+                }
+                return { ...prev, [key]: updated }
+              }
+            }
+            return prev
+          })
           break
         }
 

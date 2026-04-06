@@ -128,6 +128,7 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
           send({ type: 'sdk_message', sessionId: sid, message })
         },
         onPermissionRequest(sid, toolUseId, toolName, input, meta) {
+          log.info({ sessionId: sid, toolUseId, toolName, agentId: meta.agentId }, 'Sending permission_request to client')
           send({ type: 'permission_request', sessionId: sid, toolUseId, toolName, input, ...meta })
         },
         onEnd(sid) {

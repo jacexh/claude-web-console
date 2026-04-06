@@ -16,9 +16,10 @@ interface SubAgentCardProps {
   allSubagentMessages?: Record<string, ChatItem[]>
   onExpand: (sessionId: string, agentId: string) => void
   onSelectArtifact?: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
+  onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean) => void
 }
 
-export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact }: SubAgentCardProps) {
+export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision }: SubAgentCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Auto-expand when subagent starts streaming messages
@@ -48,7 +49,7 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
       case 'assistant':
         return <MessageBubble key={item.id} role="assistant" content={item.content as string} />
       case 'tool_use': {
-        const data = item.content as { name: string; input: Record<string, unknown>; result?: unknown }
+        const data = item.content as { name: string; input: Record<string, unknown>; result?: unknown; permission?: { status: 'pending' | 'approved' | 'denied'; title?: string; description?: string; hasSuggestions?: boolean } }
         // Nested SubAgentCard for Agent tool calls
         if (data.name === 'Agent' && item.agentId) {
           const toolInput = item.toolInput ?? data.input
@@ -73,6 +74,7 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
               allSubagentMessages={allSubagentMessages}
               onExpand={onExpand}
               onSelectArtifact={onSelectArtifact}
+              onPermissionDecision={onPermissionDecision}
             />
           )
         }
@@ -83,6 +85,8 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
             toolName={data.name}
             input={data.input}
             result={data.result}
+            permission={data.permission}
+            onPermissionDecision={onPermissionDecision}
             defaultCollapsed
             onSelect={onSelectArtifact ? () => onSelectArtifact(data.name, data.input, data.result) : undefined}
           />

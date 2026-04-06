@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 async function main(): Promise<void> {
-  const app = Fastify({ logger: true })
+  const app = Fastify({
+    logger: { level: process.env.LOG_LEVEL ?? 'info' },
+  })
   const log = app.log
 
   await app.register(websocket)
