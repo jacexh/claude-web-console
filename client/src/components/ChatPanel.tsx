@@ -389,7 +389,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             {sessionRunning ? "running" : "idle"}
           </span>
           <span className="text-xs text-slate-400 font-mono bg-slate-50 px-2 py-0.5 rounded">
-            ID: {activeSessionId?.slice(0, 12)}
+            ID: {activeSessionId}
           </span>
         </div>
         <div className="flex items-center gap-4">

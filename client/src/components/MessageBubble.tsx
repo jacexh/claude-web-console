@@ -68,22 +68,22 @@ function parseUserContent(raw: string): ParsedContent {
 function TaskNotificationBadge({ taskId, status, summary }: { taskId: string; status: string; summary: string }) {
   const isFailed = status === "failed"
   return (
-    <div className="flex justify-start py-1">
-      <div className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm border ${
+    <div className="ml-10 my-2">
+      <div className={`inline-flex items-center gap-3 rounded-lg px-4 py-2.5 border shadow-soft ${
         isFailed
-          ? "bg-red-50 border-red-200"
-          : "bg-green-50 border-green-200"
+          ? "bg-[#fef2f2] border-[#f5c6c6]"
+          : "bg-[#f0faf0] border-[#c6e6c6]"
       }`}>
         {isFailed ? (
-          <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />
+          <XCircle className="h-4 w-4 text-red-500 shrink-0" />
         ) : (
-          <CheckCircle className="h-3.5 w-3.5 text-success shrink-0" />
+          <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
         )}
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
             <Bell className="h-3 w-3 text-muted-foreground" />
             <span className="font-mono text-xs text-muted-foreground">task/{taskId.slice(0, 8)}</span>
-            <span className={`text-xs font-medium ${isFailed ? "text-destructive" : "text-success"}`}>
+            <span className={`text-xs font-medium ${isFailed ? "text-red-700" : "text-emerald-700"}`}>
               {status}
             </span>
           </div>

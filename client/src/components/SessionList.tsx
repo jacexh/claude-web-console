@@ -331,7 +331,14 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
                       {session.status === "running" && (
                         <span className="inline-block h-1 w-1 rounded-full bg-success animate-pulse" />
                       )}
-                      ID: {session.sessionId.slice(0, 8)}
+                      ID: <span
+                        className="cursor-pointer hover:underline"
+                        title={`Click to copy: ${session.sessionId}`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigator.clipboard.writeText(session.sessionId)
+                        }}
+                      >{session.sessionId.slice(0, 8)}</span>
                     </div>
                     {!isEditing && session.status !== 'running' && (
                       <button

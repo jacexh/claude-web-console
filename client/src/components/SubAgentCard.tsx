@@ -36,9 +36,9 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
   }
 
   const statusColors = {
-    running: 'bg-amber-100 text-amber-700',
-    done: 'bg-green-100 text-green-700',
-    error: 'bg-red-100 text-red-700',
+    running: 'bg-[#fcf1ce] text-amber-700',
+    done: 'bg-[#e8f5e8] text-emerald-700',
+    error: 'bg-[#fef2f2] text-red-700',
   }
 
   const renderItem = (item: ChatItem) => {
@@ -94,22 +94,24 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
   }
 
   return (
-    <div className="border border-violet-200 bg-violet-50 rounded-lg p-3 my-2">
-      <div className="flex items-center justify-between cursor-pointer" onClick={handleToggle}>
+    <div className="ml-10 my-2 border border-[#d4c5f9] bg-[#f5f0ff] rounded-lg overflow-hidden shadow-soft">
+      {/* Header */}
+      <div className="flex items-center justify-between cursor-pointer px-4 py-2.5 border-b border-[#d4c5f9]/50" onClick={handleToggle}>
         <div className="flex items-center gap-2">
           {expanded ? <ChevronDown size={14} className="text-violet-500" /> : <ChevronRight size={14} className="text-violet-500" />}
-          {agentName && <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-violet-200 text-violet-700">{agentName}</span>}
+          {agentName && <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-[#e4d8f9] text-violet-700">{agentName}</span>}
           <span className="text-sm font-medium text-violet-800 truncate max-w-xs">{description}</span>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[status]}`}>
           {status}
         </span>
       </div>
+      {/* Body */}
       {resultPreview && !expanded && (
-        <div className="mt-1 ml-5 text-xs text-slate-500 truncate">{resultPreview}</div>
+        <div className="px-4 py-2 text-xs text-slate-500 truncate">{resultPreview}</div>
       )}
       {expanded && (
-        <div className="mt-3 border-l-2 border-violet-200 pl-2 space-y-1">
+        <div className="px-3 py-3 border-l-2 border-[#d4c5f9] ml-3 my-2 space-y-1">
           {!subagentMessages ? (
             <div className="text-xs text-slate-400">Loading...</div>
           ) : subagentMessages.length === 0 ? (
