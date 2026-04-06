@@ -85,50 +85,51 @@ export function QuestionCard({ input, onAnswer, answered }: QuestionCardProps) {
                   <Check className="h-4 w-4 text-success" />
                   <span>{answers[i] ?? "Answered"}</span>
                 </div>
-              ) : hasOptions ? (
-                /* Option buttons — styled like the permission card buttons */
-                <div className="flex flex-wrap gap-2">
-                  {q.options!.map((opt, j) => (
-                    <button
-                      key={j}
-                      onClick={() => handleSelectOption(i, opt.label)}
-                      className={cn(
-                        "px-4 py-1.5 text-sm font-medium rounded border transition-colors",
-                        j === 0
-                          ? "bg-[#c5d9ff] hover:bg-[#9cbdfb] text-primary border-[#9cbdfb]"
-                          : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
-                      )}
-                    >
-                      {opt.label}
-                      {opt.description && (
-                        <span className="text-muted-foreground font-normal ml-1.5">— {opt.description}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
               ) : (
-                /* Free text input */
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={freeText[i] ?? ""}
-                    onChange={(e) => setFreeText((prev) => ({ ...prev, [i]: e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        handleFreeTextSubmit(i)
-                      }
-                    }}
-                    placeholder="Type your answer..."
-                    className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-1.5 text-sm text-foreground outline-none placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
-                  />
-                  <button
-                    onClick={() => handleFreeTextSubmit(i)}
-                    disabled={!(freeText[i] ?? "").trim()}
-                    className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded text-sm font-medium hover:bg-slate-50 shadow-sm whitespace-nowrap disabled:opacity-40"
-                  >
-                    Submit
-                  </button>
+                <div className="space-y-2">
+                  {hasOptions && (
+                    <div className="flex flex-wrap gap-2">
+                      {q.options!.map((opt, j) => (
+                        <button
+                          key={j}
+                          onClick={() => handleSelectOption(i, opt.label)}
+                          className={cn(
+                            "px-4 py-1.5 text-sm font-medium rounded border transition-colors",
+                            j === 0
+                              ? "bg-[#c5d9ff] hover:bg-[#9cbdfb] text-primary border-[#9cbdfb]"
+                              : "bg-white hover:bg-slate-50 text-slate-700 border-slate-200"
+                          )}
+                        >
+                          {opt.label}
+                          {opt.description && (
+                            <span className="text-muted-foreground font-normal ml-1.5">— {opt.description}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={freeText[i] ?? ""}
+                      onChange={(e) => setFreeText((prev) => ({ ...prev, [i]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          handleFreeTextSubmit(i)
+                        }
+                      }}
+                      placeholder={hasOptions ? "Or type your own answer..." : "Type your answer..."}
+                      className="flex-1 bg-white border border-slate-200 rounded-md px-3 py-1.5 text-sm text-foreground outline-none placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                    <button
+                      onClick={() => handleFreeTextSubmit(i)}
+                      disabled={!(freeText[i] ?? "").trim()}
+                      className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded text-sm font-medium hover:bg-slate-50 shadow-sm whitespace-nowrap disabled:opacity-40"
+                    >
+                      Submit
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

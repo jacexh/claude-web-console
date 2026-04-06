@@ -428,7 +428,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
 
       {/* Chat area */}
       <ScrollArea className="flex-1">
-        <div className="max-w-4xl mx-auto p-6 flex flex-col gap-6 pb-32">
+        <div className="max-w-4xl mx-auto p-6 flex flex-col gap-2 pb-32">
           {history.length > 0 && (
             <>
               {renderedHistory}
