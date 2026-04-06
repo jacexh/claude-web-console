@@ -453,49 +453,51 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       </header>
 
       {/* Chat area */}
-      <ScrollArea ref={scrollAreaRef} className="flex-1">
-        <div className="max-w-4xl mx-auto p-6 flex flex-col gap-2 pb-32">
-          {history.length > 0 && (
-            <>
-              {renderedHistory}
-              <div className="flex items-center gap-4 my-4">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-xs font-semibold tracking-wider uppercase text-slate-400 bg-white px-2">
-                  previous messages
-                </span>
-                <div className="flex-1 h-px bg-slate-200" />
+      <div className="flex-1 min-h-0 relative">
+        <ScrollArea ref={scrollAreaRef} className="h-full">
+          <div className="max-w-4xl mx-auto p-6 flex flex-col gap-2 pb-4">
+            {history.length > 0 && (
+              <>
+                {renderedHistory}
+                <div className="flex items-center gap-4 my-4">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs font-semibold tracking-wider uppercase text-slate-400 bg-white px-2">
+                    previous messages
+                  </span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+              </>
+            )}
+
+            {renderedMessages}
+
+            {/* Loading dots */}
+            {loading && (
+              <div className="flex gap-1 ml-12 py-2">
+                <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
+                <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
+                <div className="w-2 h-2 rounded-full bg-slate-200 animate-bounce [animation-delay:300ms]" />
               </div>
-            </>
-          )}
+            )}
 
-          {renderedMessages}
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
 
-          {/* Loading dots */}
-          {loading && (
-            <div className="flex gap-1 ml-12 py-2">
-              <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:0ms]" />
-              <div className="w-2 h-2 rounded-full bg-slate-300 animate-bounce [animation-delay:150ms]" />
-              <div className="w-2 h-2 rounded-full bg-slate-200 animate-bounce [animation-delay:300ms]" />
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-      </ScrollArea>
-
-      {/* New messages indicator */}
-      {hasNewMessages && (
-        <button
-          onClick={scrollToBottom}
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full shadow-lg hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-bottom-2"
-        >
-          <ArrowDown className="h-3 w-3" />
-          New messages
-        </button>
-      )}
+        {/* New messages indicator */}
+        {hasNewMessages && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-xs font-medium rounded-full shadow-lg hover:bg-primary/90 transition-all animate-in fade-in slide-in-from-bottom-2"
+          >
+            <ArrowDown className="h-3 w-3" />
+            New messages
+          </button>
+        )}
+      </div>
 
       {/* Bottom input area */}
-      <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-slate-100 p-4">
+      <div className="shrink-0 bg-white border-t border-slate-100 p-4">
         <div className="max-w-4xl mx-auto">
           {sessionRunning ? (
             <>
