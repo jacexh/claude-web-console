@@ -19,7 +19,7 @@ async function main(): Promise<void> {
     root: clientDist,
     prefix: '/',
     wildcard: false,
-    decorateReply: false,
+    decorateReply: true,
   })
 
   const sessionManager = new SessionManager()
