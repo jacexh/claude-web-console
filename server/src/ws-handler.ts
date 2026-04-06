@@ -267,7 +267,7 @@ export function createWsHandler(sessionManager: SessionManager) {
 
           case 'get_subagent_messages': {
             const messages = await sessionManager.getSubagentMessages(msg.sessionId, msg.agentId)
-            send({ type: 'subagent_messages', agentId: msg.agentId, messages })
+            send({ type: 'subagent_messages', sessionId: msg.sessionId, agentId: msg.agentId, messages })
             break
           }
 

@@ -401,6 +401,21 @@ export function App() {
             }
             return updated
           })
+          // Remap subagent messages (keys are `${sessionId}:${agentId}`)
+          setSubagentMessages((prev) => {
+            const tempPrefix = `${data.tempId as string}:`
+            const hasTemp = Object.keys(prev).some((k) => k.startsWith(tempPrefix))
+            if (!hasTemp) return prev
+            const updated: Record<string, ChatItem[]> = {}
+            for (const [key, value] of Object.entries(prev)) {
+              if (key.startsWith(tempPrefix)) {
+                updated[`${data.sessionId as string}:${key.slice(tempPrefix.length)}`] = value
+              } else {
+                updated[key] = value
+              }
+            }
+            return updated
+          })
           send({ type: 'list_commands', sessionId: data.sessionId as string })
           break
 
@@ -558,7 +573,7 @@ export function App() {
   }, [])
 
   const handleConfirmNewSession = useCallback(
-    (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[]) => {
+    (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => {
       setShowNewSessionDialog(false)
       send({
         type: 'create_session',
@@ -567,6 +582,7 @@ export function App() {
           ...(model ? { model } : {}),
           ...(permissionMode ? { permissionMode } : {}),
           ...(executableArgs?.length ? { executableArgs } : {}),
+          ...(env && Object.keys(env).length ? { env } : {}),
         },
       })
     },

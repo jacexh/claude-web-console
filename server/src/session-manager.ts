@@ -278,7 +278,7 @@ export class SessionManager {
   }
 
   async createSession(
-    options?: { model?: string; cwd?: string; permissionMode?: string; executableArgs?: string[] },
+    options?: { model?: string; cwd?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> },
   ): Promise<string> {
     const cwd = options?.cwd ?? process.env.CC_WEB_CONSOLE_CWD ?? process.env.HOME ?? '/'
     const sessionIdRef = { current: '' }
@@ -289,7 +289,7 @@ export class SessionManager {
       permissionMode: options?.permissionMode ?? 'default',
       canUseTool: this.buildCanUseTool(sessionIdRef),
       onElicitation: this.buildOnElicitation(sessionIdRef),
-      env: cleanEnv(cwd),
+      env: { ...cleanEnv(cwd), ...options?.env },
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
       executableArgs: [...pluginArgs, ...userArgs],
     } as SDKSessionOptions
@@ -386,7 +386,15 @@ export class SessionManager {
               const q = (session as unknown as { query: { supportedCommands(): Promise<{ name: string; description: string }[]> } }).query
               q?.supportedCommands()?.then((cmds: { name: string; description: string }[]) => {
                 if (cmds.length > 0) {
-                  this.sessionCommands.set(sid, cmds)
+                  // Merge: use supportedCommands descriptions, but keep init-only skills that supportedCommands missed
+                  const cmdMap = new Map(cmds.map((c) => [c.name, c]))
+                  const existing = this.sessionCommands.get(sid) ?? []
+                  for (const prev of existing) {
+                    if (!cmdMap.has(prev.name)) {
+                      cmdMap.set(prev.name, prev)
+                    }
+                  }
+                  this.sessionCommands.set(sid, Array.from(cmdMap.values()))
                   // Notify via broadcast so ws-handler can push updated list
                   this.broadcast(sid, (l) => l.onMessage(sid, { type: 'commands_updated' } as unknown as SDKMessage))
                 }

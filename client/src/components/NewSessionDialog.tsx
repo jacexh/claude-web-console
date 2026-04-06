@@ -14,7 +14,7 @@ interface NewSessionDialogProps {
   open: boolean
   defaultCwd: string
   availableModels: ModelInfo[]
-  onConfirm: (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[]) => void
+  onConfirm: (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => void
   onCancel: () => void
   onRequestFiles: (prefix: string) => void
   fileList: FileEntry[]
@@ -35,6 +35,7 @@ export function NewSessionDialog({
   const [selectedModel, setSelectedModel] = useState("")
   const [permissionMode, setPermissionMode] = useState("")
   const [argsText, setArgsText] = useState("")
+  const [envText, setEnvText] = useState("")
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -51,6 +52,7 @@ export function NewSessionDialog({
       setSelectedModel("")
       setPermissionMode("")
       setArgsText("")
+      setEnvText("")
       setShowSuggestions(false)
       setSelectedIndex(0)
       // Focus input after mount
@@ -69,8 +71,16 @@ export function NewSessionDialog({
     const cwd = value.trim() || defaultCwd
     localStorage.setItem(STORAGE_KEY, cwd)
     const args = argsText.trim() ? argsText.trim().split(/\s+/) : undefined
-    onConfirm(cwd, selectedModel || undefined, permissionMode || undefined, args)
-  }, [value, defaultCwd, selectedModel, permissionMode, argsText, onConfirm])
+    const env = envText.trim()
+      ? Object.fromEntries(
+          envText.trim().split("\n").filter(Boolean).map((line) => {
+            const idx = line.indexOf("=")
+            return idx > 0 ? [line.slice(0, idx).trim(), line.slice(idx + 1).trim()] : null
+          }).filter((e): e is [string, string] => e !== null),
+        )
+      : undefined
+    onConfirm(cwd, selectedModel || undefined, permissionMode || undefined, args, env)
+  }, [value, defaultCwd, selectedModel, permissionMode, argsText, envText, onConfirm])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -233,6 +243,17 @@ export function NewSessionDialog({
           onChange={(e) => setArgsText(e.target.value)}
           placeholder="e.g. --system-prompt 'Be concise'"
           className="w-full px-3 py-2 rounded-lg bg-surface-high/50 border border-border text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+
+        <label className="block text-xs text-muted-foreground mb-2 mt-4">
+          Environment Variables
+        </label>
+        <textarea
+          value={envText}
+          onChange={(e) => setEnvText(e.target.value)}
+          placeholder={"KEY=value\nANOTHER_KEY=value"}
+          rows={3}
+          className="w-full px-3 py-2 rounded-lg bg-surface-high/50 border border-border text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary resize-y"
         />
 
         <div className="flex justify-end gap-2 mt-5">

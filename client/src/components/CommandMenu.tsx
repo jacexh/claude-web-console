@@ -61,7 +61,7 @@ export function filterCommands(
     commands = BUILTIN_COMMANDS
   }
 
-  if (!query) return commands.slice(0, 30)
+  if (!query) return commands.slice(0, 50)
   return commands.filter((cmd) => {
     const name = cmd.name.slice(1).toLowerCase()
     return name.includes(query)

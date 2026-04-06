@@ -1,6 +1,6 @@
 {
   "name": "@jacexh/claude-web-console",
-  "version": "0.1.0",
+  "version": "0.0.0",
   "description": "Web-based console for Claude Code — manage sessions, switch models, preview artifacts",
   "type": "module",
   "bin": {
@@ -40,7 +40,12 @@
     "ai",
     "agent"
   ],
+  "author": "jacexh",
   "license": "MIT",
+  "homepage": "https://github.com/jacexh/talgent/tree/master/claude-web-console#readme",
+  "bugs": {
+    "url": "https://github.com/jacexh/talgent/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/jacexh/talgent.git",

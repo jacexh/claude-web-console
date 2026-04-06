@@ -7,6 +7,7 @@ export interface CreateSessionMessage {
     cwd?: string
     permissionMode?: string
     executableArgs?: string[]
+    env?: Record<string, string>
   }
 }
 
