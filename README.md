@@ -46,6 +46,23 @@ docker run -p 3000:3000 \
 
 > Mount `~/.claude` so the container can reuse your existing Claude Code authentication.
 
+### systemd (Linux)
+
+```bash
+# Copy the service file
+cp claude-web-console.service ~/.config/systemd/user/
+
+# Edit environment variables as needed
+systemctl --user edit claude-web-console.service
+
+# Enable and start
+systemctl --user enable --now claude-web-console.service
+
+# Check status / logs
+systemctl --user status claude-web-console.service
+journalctl --user -u claude-web-console.service -f
+```
+
 ## CLI Options
 
 ```

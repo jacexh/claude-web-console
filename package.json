@@ -9,7 +9,8 @@
   "files": [
     "bin/",
     "server/src/",
-    "client/dist/"
+    "client/dist/",
+    "claude-web-console.service"
   ],
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
