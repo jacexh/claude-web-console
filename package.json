@@ -1,6 +1,6 @@
 {
   "name": "@jacexh/claude-web-console",
-  "version": "0.0.0",
+  "version": "0.2.1",
   "description": "Web-based console for Claude Code — manage sessions, switch models, preview artifacts",
   "type": "module",
   "bin": {
@@ -19,7 +19,10 @@
     "build": "npm run build --workspace=client",
     "prepublishOnly": "npm run build"
   },
-  "workspaces": ["server", "client"],
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "engines": {
     "node": ">=18"
   },
