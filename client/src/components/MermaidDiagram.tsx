@@ -18,13 +18,26 @@ function loadMermaid() {
   return mermaidPromise
 }
 
+function fitScale(svgHtml: string): number {
+  const wMatch = svgHtml.match(/width="([\d.]+)/)
+  const hMatch = svgHtml.match(/height="([\d.]+)/)
+  if (!wMatch || !hMatch) return 1.5
+  const svgW = parseFloat(wMatch[1])
+  const svgH = parseFloat(hMatch[1])
+  // leave 80px for toolbar and padding
+  const vw = window.innerWidth * 0.9
+  const vh = (window.innerHeight - 80) * 0.9
+  return Math.min(vw / svgW, vh / svgH, 3)
+}
+
 function DiagramPreview({ svgHtml, onClose }: { svgHtml: string; onClose: () => void }) {
-  const [scale, setScale] = useState(1)
+  const initialScale = useRef(fitScale(svgHtml))
+  const [scale, setScale] = useState(initialScale.current)
   const [translate, setTranslate] = useState({ x: 0, y: 0 })
   const dragging = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
 
   const reset = useCallback(() => {
-    setScale(1)
+    setScale(initialScale.current)
     setTranslate({ x: 0, y: 0 })
   }, [])
 
