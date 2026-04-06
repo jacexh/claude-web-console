@@ -145,6 +145,7 @@ export interface SessionInfo {
   summary: string
   lastModified: number
   status: 'idle' | 'running'
+  cwd?: string
 }
 
 export interface SdkEventMessage {
@@ -252,6 +253,7 @@ export interface EffortLevelChangedMessage {
 
 export interface SubagentMessagesMessage {
   type: 'subagent_messages'
+  sessionId: string
   agentId: string
   messages: unknown[]
 }

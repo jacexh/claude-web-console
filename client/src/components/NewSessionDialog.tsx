@@ -13,6 +13,7 @@ interface FileEntry {
 interface NewSessionDialogProps {
   open: boolean
   defaultCwd: string
+  projectCwd: string | null
   availableModels: ModelInfo[]
   onConfirm: (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => void
   onCancel: () => void
@@ -25,6 +26,7 @@ const STORAGE_KEY = "cc-web-console:lastCwd"
 export function NewSessionDialog({
   open,
   defaultCwd,
+  projectCwd,
   availableModels,
   onConfirm,
   onCancel,
@@ -44,11 +46,17 @@ export function NewSessionDialog({
   // Only show directories in suggestions
   const dirEntries = fileList.filter((f) => f.isDir)
 
+  const cwdLocked = projectCwd !== null
+
   // Initialize value when dialog opens
   useEffect(() => {
     if (open) {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      setValue(saved || defaultCwd)
+      if (projectCwd) {
+        setValue(projectCwd)
+      } else {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        setValue(saved || defaultCwd)
+      }
       setSelectedModel("")
       setPermissionMode("")
       setArgsText("")
@@ -58,14 +66,14 @@ export function NewSessionDialog({
       // Focus input after mount
       setTimeout(() => inputRef.current?.focus(), 50)
     }
-  }, [open, defaultCwd])
+  }, [open, defaultCwd, projectCwd])
 
-  // Request directory listing when value changes
+  // Request directory listing when value changes (skip when cwd is locked)
   useEffect(() => {
-    if (open && value) {
+    if (open && value && !cwdLocked) {
       onRequestFiles(value)
     }
-  }, [open, value, onRequestFiles])
+  }, [open, value, cwdLocked, onRequestFiles])
 
   const handleConfirm = useCallback(() => {
     const cwd = value.trim() || defaultCwd
@@ -147,22 +155,29 @@ export function NewSessionDialog({
             type="text"
             value={value}
             onChange={(e) => {
+              if (cwdLocked) return
               setValue(e.target.value)
               setShowSuggestions(true)
               setSelectedIndex(0)
             }}
-            onFocus={() => setShowSuggestions(true)}
+            onFocus={() => { if (!cwdLocked) setShowSuggestions(true) }}
             onBlur={() => {
               // Delay to allow click on suggestion
               setTimeout(() => setShowSuggestions(false), 150)
             }}
-            onKeyDown={handleKeyDown}
+            onKeyDown={cwdLocked ? undefined : handleKeyDown}
+            readOnly={cwdLocked}
             placeholder={defaultCwd}
-            className="w-full px-3 py-2 rounded-lg bg-surface-high/50 border border-border text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary"
+            className={cn(
+              "w-full px-3 py-2 rounded-lg border text-sm font-mono focus:outline-none",
+              cwdLocked
+                ? "bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed"
+                : "bg-surface-high/50 border-border text-foreground placeholder:text-muted-foreground/50 focus:ring-1 focus:ring-primary"
+            )}
           />
 
           {/* Autocomplete dropdown */}
-          {showSuggestions && dirEntries.length > 0 && (
+          {!cwdLocked && showSuggestions && dirEntries.length > 0 && (
             <div
               ref={listRef}
               className="absolute top-full left-0 right-0 mt-1 max-h-[200px] overflow-auto rounded-lg glass shadow-ambient z-10"

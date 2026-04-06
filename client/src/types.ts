@@ -127,6 +127,7 @@ export interface SessionInfo {
   summary: string
   lastModified: number
   status: 'idle' | 'running'
+  cwd?: string
 }
 
 export interface ServerMessage {

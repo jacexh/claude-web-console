@@ -34,7 +34,7 @@ interface ChatPanelProps {
   onFork?: (sessionId: string, upToMessageId: string) => void
   effortLevel?: EffortLevel
   onSetEffortLevel?: (level: EffortLevel) => void
-  subagentMessages?: Record<string, unknown[]>
+  subagentMessages?: Record<string, ChatItem[]>
   onGetSubagentMessages?: (sessionId: string, agentId: string) => void
   onElicitationResponse?: (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => void
   onOpenSettings?: () => void
@@ -308,11 +308,19 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             <MessageSquare className="h-7 w-7 text-white" />
           </div>
           <div>
-            <p className="text-xl font-semibold text-foreground tracking-[-0.02em]">CC Web Console</p>
+            <p className="text-xl font-semibold text-foreground tracking-[-0.02em]">Claude Web Console</p>
             <p className="text-sm text-muted-foreground mt-2 max-w-[300px] leading-relaxed">
               Select a session from the sidebar or create a new one to get started
             </p>
           </div>
+          <a
+            href="https://github.com/jacexh/talgent"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors mt-4"
+          >
+            github.com/jacexh/talgent
+          </a>
         </div>
       </div>
     )

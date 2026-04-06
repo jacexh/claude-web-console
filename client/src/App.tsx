@@ -36,6 +36,7 @@ export function App() {
   const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
   const [subagentMessages, setSubagentMessages] = useState<Record<string, ChatItem[]>>({})
   const [showSettings, setShowSettings] = useState(false)
+  const [newSessionProjectCwd, setNewSessionProjectCwd] = useState<string | null>(null)
   const [currentSettings, setCurrentSettings] = useState<Record<string, unknown>>({})
   // Global model list: start with well-known models, replace with SDK list when available
   const [globalModels, setGlobalModels] = useState<ModelInfo[]>([
@@ -45,6 +46,8 @@ export function App() {
   ])
   // Track locally-sent user messages to deduplicate SDK echoes
   const sentMessagesRef = useRef<Set<string>>(new Set())
+  // Track cwd for pending session creation so we can attach it to the new session
+  const pendingSessionCwdRef = useRef<string | null>(null)
 
   const updateSessionStatus = useCallback((sessionId: string, patch: Partial<SessionStatusInfo>) => {
     setStatusBySession((prev) => ({
@@ -63,9 +66,12 @@ export function App() {
           store.setSessions(data.sessions as SessionInfo[])
           break
 
-        case 'session_created':
-          store.addSession(data.sessionId as string)
+        case 'session_created': {
+          const cwd = pendingSessionCwdRef.current
+          pendingSessionCwdRef.current = null
+          store.addSession(data.sessionId as string, undefined, cwd ?? undefined)
           break
+        }
 
         case 'sdk_message': {
           const sessionId = data.sessionId as string
@@ -568,13 +574,20 @@ export function App() {
     }
   }, [connected, send])
 
-  const handleCreateSession = useCallback(() => {
+  const handleCreateSession = useCallback((projectCwd?: string) => {
+    setNewSessionProjectCwd(projectCwd ?? null)
+    setShowNewSessionDialog(true)
+  }, [])
+
+  const handleOpenDirectory = useCallback(() => {
+    setNewSessionProjectCwd(null)
     setShowNewSessionDialog(true)
   }, [])
 
   const handleConfirmNewSession = useCallback(
     (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => {
       setShowNewSessionDialog(false)
+      pendingSessionCwdRef.current = cwd
       send({
         type: 'create_session',
         options: {
@@ -773,6 +786,8 @@ export function App() {
           onToggleCollapse={() => setSidebarCollapsed(true)}
           onClose={handleCloseSession}
           onRename={handleRenameSession}
+          defaultCwd={defaultCwd}
+          onOpenDirectory={handleOpenDirectory}
         />
       </div>
       {!sidebarCollapsed && (
@@ -834,6 +849,7 @@ export function App() {
       <NewSessionDialog
         open={showNewSessionDialog}
         defaultCwd={defaultCwd}
+        projectCwd={newSessionProjectCwd}
         availableModels={globalModels}
         onConfirm={handleConfirmNewSession}
         onCancel={() => setShowNewSessionDialog(false)}

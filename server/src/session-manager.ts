@@ -54,7 +54,7 @@ function cleanEnv(cwd?: string): Record<string, string | undefined> {
   return env
 }
 
-const CLAUDE_EXECUTABLE = process.env.CLAUDE_PATH ?? '/home/xuhao/.local/bin/claude'
+const CLAUDE_EXECUTABLE = process.env.CLAUDE_PATH ?? 'claude'
 
 // Read ~/.claude/settings.json and resolve enabled plugins to local --plugin-dir paths
 function getPluginDirArgs(): string[] {
@@ -596,6 +596,7 @@ export class SessionManager {
         summary: s.summary || 'Untitled',
         lastModified: s.lastModified,
         status: this.runningSessionIds.has(s.sessionId) ? 'running' as const : 'idle' as const,
+        cwd: (s as Record<string, unknown>).cwd as string | undefined,
       }))
   }
 

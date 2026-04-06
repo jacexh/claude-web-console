@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   const port = parseInt(process.env.PORT ?? '3000', 10)
   const host = process.env.HOST ?? '0.0.0.0'
   await app.listen({ port, host })
-  console.log(`CC Web Console server running on http://localhost:${port}`)
+  console.log(`Claude Web Console server running on http://localhost:${port}`)
 }
 
 main().catch(console.error)

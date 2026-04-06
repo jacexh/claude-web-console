@@ -1,4 +1,4 @@
-# CC Web Console — 消息类型与渲染验证清单
+# Claude Web Console — 消息类型与渲染验证清单
 
 ## 一、SDK → 前端渲染的 ChatItem 类型
 

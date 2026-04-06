@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { MessageBubble } from './MessageBubble'
 import { EventCard } from './EventCard'
@@ -20,6 +20,13 @@ interface SubAgentCardProps {
 
 export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact }: SubAgentCardProps) {
   const [expanded, setExpanded] = useState(false)
+
+  // Auto-expand when subagent starts streaming messages
+  useEffect(() => {
+    if (status === 'running' && subagentMessages && subagentMessages.length > 0) {
+      setExpanded(true)
+    }
+  }, [status, subagentMessages])
 
   const handleToggle = () => {
     if (!expanded && !subagentMessages) {
