@@ -258,6 +258,19 @@ export interface EffortLevelChangedMessage {
   level: EffortLevel
 }
 
+export interface ModelChangedMessage {
+  type: 'model_changed'
+  sessionId: string
+  model: string
+}
+
+export interface SessionStateMessage {
+  type: 'session_state'
+  sessionId: string
+  model?: string
+  effortLevel?: EffortLevel
+}
+
 export interface SubagentMessagesMessage {
   type: 'subagent_messages'
   sessionId: string
@@ -299,6 +312,8 @@ export type ServerMessage =
   | SessionRenamedMessage
   | SessionForkedMessage
   | EffortLevelChangedMessage
+  | ModelChangedMessage
+  | SessionStateMessage
   | SubagentMessagesMessage
   | ElicitationRequestMessage
   | SessionSettingsMessage

@@ -91,6 +91,15 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             return
           }
 
+          if (msg.type === 'model_changed') {
+            send({
+              type: 'model_changed',
+              sessionId: msg.sessionId as string,
+              model: msg.model as string,
+            })
+            return
+          }
+
           if (msg.type === 'elicitation_request') {
             send({
               type: 'elicitation_request',
@@ -192,6 +201,11 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             // Load historical messages
             const history = await sessionManager.getHistory(msg.sessionId)
             send({ type: 'session_history', sessionId: msg.sessionId, messages: history })
+            // Send current session state (model, effort level) for multi-client sync
+            const state = sessionManager.getSessionState(msg.sessionId)
+            if (state.model || state.effortLevel) {
+              send({ type: 'session_state', sessionId: msg.sessionId, ...state })
+            }
             // Subscribe for live updates if session is running
             sessionManager.subscribe(msg.sessionId, makeListener(msg.sessionId))
             break

@@ -136,6 +136,9 @@ export class SessionManager {
   private sessionCommands = new Map<string, { name: string; description: string }[]>()
   // Active stream (Query) references for control requests like setModel
   private activeQueries = new Map<string, AsyncGenerator<SDKMessage, void>>()
+  // Track current model and effort level per session for multi-client sync
+  private sessionModels = new Map<string, string>()
+  private sessionEffortLevels = new Map<string, EffortLevel>()
 
   constructor(log: FastifyBaseLogger) {
     this.log = log
@@ -356,6 +359,9 @@ export class SessionManager {
     if (!query?.supportedModels) return
     query.supportedModels().then((models) => {
       if (models.length > 0) {
+        if (currentModel) {
+          this.sessionModels.set(sessionId, currentModel)
+        }
         this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
           type: 'models_updated', models, currentModel,
         } as unknown as SDKMessage))
@@ -567,6 +573,10 @@ export class SessionManager {
       throw new Error(`Session ${sessionId} does not support model switching`)
     }
     await query.setModel(model)
+    this.sessionModels.set(sessionId, model)
+    this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
+      type: 'model_changed', sessionId, model,
+    } as unknown as SDKMessage))
   }
 
   async setEffortLevel(sessionId: string, level: EffortLevel): Promise<void> {
@@ -580,9 +590,17 @@ export class SessionManager {
       throw new Error(`Session ${sessionId} does not support effort level`)
     }
     await query.applyFlagSettings({ effort: level })
+    this.sessionEffortLevels.set(sessionId, level)
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
       type: 'effort_level_changed', sessionId, level,
     } as unknown as SDKMessage))
+  }
+
+  getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel } {
+    return {
+      model: this.sessionModels.get(sessionId),
+      effortLevel: this.sessionEffortLevels.get(sessionId),
+    }
   }
 
   async interruptSession(sessionId: string): Promise<void> {

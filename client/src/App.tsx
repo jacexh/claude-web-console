@@ -547,6 +547,21 @@ export function App() {
           setEffortBySession((prev) => ({ ...prev, [data.sessionId as string]: data.level as EffortLevel }))
           break
 
+        case 'model_changed':
+          updateSessionStatus(data.sessionId as string, { model: data.model as string })
+          break
+
+        case 'session_state': {
+          const sid = data.sessionId as string
+          if (data.model) {
+            updateSessionStatus(sid, { model: data.model as string })
+          }
+          if (data.effortLevel) {
+            setEffortBySession((prev) => ({ ...prev, [sid]: data.effortLevel as EffortLevel }))
+          }
+          break
+        }
+
         case 'subagent_messages': {
           const { agentId, messages: agentMsgs } = data as { agentId: string; messages: unknown[] }
           const sid = (data.sessionId as string | undefined) ?? store.activeSessionId ?? ''

@@ -166,6 +166,19 @@ export interface EffortLevelChangedMessage {
   level: EffortLevel
 }
 
+export interface ModelChangedMessage {
+  type: 'model_changed'
+  sessionId: string
+  model: string
+}
+
+export interface SessionStateMessage {
+  type: 'session_state'
+  sessionId: string
+  model?: string
+  effortLevel?: EffortLevel
+}
+
 export interface ModelInfo {
   value: string
   displayName: string
