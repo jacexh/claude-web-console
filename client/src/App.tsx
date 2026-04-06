@@ -160,10 +160,21 @@ export function App() {
 
             for (const block of content) {
               if (block.type === 'text') {
+                const text = block.text as string
+                // Render SDK interrupt markers as a friendly divider instead of raw text
+                if (/^\[Request interrupted/.test(text)) {
+                  store.addChatItem(sessionId, {
+                    id: msgUuid ?? uuid(),
+                    type: 'interrupt',
+                    content: null,
+                    timestamp: Date.now(),
+                  })
+                  continue
+                }
                 const item: ChatItem = {
                   id: msgUuid ?? uuid(),
                   type: 'assistant',
-                  content: block.text as string,
+                  content: text,
                   timestamp: Date.now(),
                   uuid: msgUuid,
                 }
@@ -574,7 +585,11 @@ export function App() {
               }
             }
           }
-          setSubagentMessages(prev => ({ ...prev, [key]: items }))
+          setSubagentMessages(prev => {
+            // Don't overwrite live-streamed messages with an empty fetch result
+            if (items.length === 0 && prev[key]?.length) return prev
+            return { ...prev, [key]: items }
+          })
           break
         }
 
@@ -687,6 +702,13 @@ export function App() {
   const handleCloseSession = useCallback(
     (sessionId: string) => {
       send({ type: 'close_session', sessionId })
+    },
+    [send],
+  )
+
+  const handleInterruptSession = useCallback(
+    (sessionId: string) => {
+      send({ type: 'interrupt_session', sessionId })
     },
     [send],
   )
@@ -874,6 +896,7 @@ export function App() {
             onGetSubagentMessages={handleGetSubagentMessages}
             onElicitationResponse={handleElicitationResponse}
             onOpenSettings={handleOpenSettings}
+            onInterrupt={handleInterruptSession}
           />
         </div>
         {artifact && (

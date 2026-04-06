@@ -585,6 +585,19 @@ export class SessionManager {
     } as unknown as SDKMessage))
   }
 
+  async interruptSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    const query = (session as unknown as { query: { interrupt(): Promise<void> } }).query
+    if (!query?.interrupt) {
+      throw new Error(`Session ${sessionId} does not support interrupt`)
+    }
+    this.log.info({ sessionId }, 'Interrupting session')
+    await query.interrupt()
+  }
+
   async sendMessage(sessionId: string, content: string): Promise<void> {
     this.log.info({ sessionId, content: content.slice(0, 50) }, 'sendMessage: sending to SDK')
     const session = this.sessions.get(sessionId)

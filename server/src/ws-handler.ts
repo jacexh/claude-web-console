@@ -203,6 +203,15 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             break
           }
 
+          case 'interrupt_session': {
+            try {
+              await sessionManager.interruptSession(msg.sessionId)
+            } catch (err) {
+              log.warn({ err, sessionId: msg.sessionId }, 'Failed to interrupt session')
+            }
+            break
+          }
+
           case 'permission_decision': {
             sessionManager.resolvePermission(
               msg.toolUseId,

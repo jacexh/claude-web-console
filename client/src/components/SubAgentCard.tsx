@@ -116,15 +116,17 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
       )}
       {expanded && (
         <div className="px-3 py-3 border-l-2 border-[#d4c5f9] ml-3 my-2 space-y-1">
-          {!subagentMessages ? (
-            <div className="text-xs text-slate-400">Loading...</div>
-          ) : subagentMessages.length === 0 ? (
+          {!subagentMessages || (subagentMessages.length === 0 && status === 'running') ? (
+            <div className="text-xs text-slate-400">Waiting for messages...</div>
+          ) : subagentMessages.length === 0 && !resultText ? (
             <div className="text-xs text-slate-400 italic">Internal messages are only available during live sessions</div>
           ) : (
-            subagentMessages.map(renderItem)
-          )}
-          {resultText && (
-            <MessageBubble role="assistant" content={resultText} />
+            <>
+              {subagentMessages.map(renderItem)}
+              {resultText && (
+                <MessageBubble role="assistant" content={resultText} />
+              )}
+            </>
           )}
         </div>
       )}

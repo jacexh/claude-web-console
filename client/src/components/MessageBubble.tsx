@@ -181,10 +181,7 @@ export const MessageBubble = memo(function MessageBubble({ role, content }: Mess
       <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-primary">
         <Bot className="h-5 w-5" />
       </div>
-      <div className="flex-1 min-w-0 flex flex-col gap-3">
-        <div className="flex items-baseline gap-2">
-          <span className="font-semibold text-foreground">Claude</span>
-        </div>
+      <div className="flex-1 min-w-0 flex flex-col gap-3 mt-2">
         <div className="prose-custom text-[15px] leading-relaxed text-slate-700">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkFrontmatter]}

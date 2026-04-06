@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Terminal, ArrowUp, HelpCircle, Pencil, GitBranch } from "lucide-react"
+import { Send, MessageSquare, Terminal, ArrowUp, Square, PauseCircle, HelpCircle, Pencil, GitBranch } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -38,6 +38,7 @@ interface ChatPanelProps {
   onGetSubagentMessages?: (sessionId: string, agentId: string) => void
   onElicitationResponse?: (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => void
   onOpenSettings?: () => void
+  onInterrupt?: (sessionId: string) => void
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -54,7 +55,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -102,6 +103,12 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
     const before = input.slice(0, atMention.start)
     setInput(before + "@" + path + " ")
   }
+
+  const handleInterrupt = useCallback(() => {
+    if (loading && activeSessionId) {
+      onInterrupt?.(activeSessionId)
+    }
+  }, [loading, activeSessionId, onInterrupt])
 
   const handleSubmit = () => {
     const trimmed = input.trim()
@@ -161,6 +168,13 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         if (atMention) setInput(input.slice(0, atMention.start))
         return
       }
+    }
+
+    // Escape to interrupt when Claude is working
+    if (e.key === "Escape" && loading) {
+      e.preventDefault()
+      handleInterrupt()
+      return
     }
 
     if (e.key === "Enter" && !e.shiftKey) {
@@ -275,6 +289,18 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           )
         }
         return null
+      }
+      case "interrupt": {
+        return (
+          <div key={item.id} className="flex items-center gap-3 my-3">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="flex items-center gap-1.5 text-xs text-slate-400">
+              <PauseCircle className="w-3.5 h-3.5" />
+              Response interrupted
+            </span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+        )
       }
       case "elicitation": {
         if (!onElicitationResponse) return null
@@ -476,13 +502,23 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
                     className="flex-1 bg-transparent border-none outline-none text-foreground text-sm font-sans resize-none leading-relaxed placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-60 p-0"
                     style={{ maxHeight: 200 }}
                   />
-                  <button
-                    onClick={handleSubmit}
-                    disabled={!input.trim() || loading}
-                    className="shrink-0 bg-slate-200 text-white rounded-lg p-1.5 disabled:opacity-40 enabled:bg-primary enabled:hover:bg-primary/90 transition-colors"
-                  >
-                    <ArrowUp className="w-5 h-5" />
-                  </button>
+                  {loading ? (
+                    <button
+                      onClick={() => activeSessionId && onInterrupt?.(activeSessionId)}
+                      className="shrink-0 bg-slate-400 hover:bg-slate-500 text-white rounded-lg p-1.5 transition-colors"
+                      title="Interrupt Claude (Esc)"
+                    >
+                      <Square className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleSubmit}
+                      disabled={!input.trim()}
+                      className="shrink-0 bg-primary text-white rounded-lg p-1.5 disabled:opacity-40 hover:bg-primary/90 transition-colors"
+                    >
+                      <ArrowUp className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </>

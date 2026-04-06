@@ -65,6 +65,11 @@ export interface CloseSessionMessage {
   sessionId: string
 }
 
+export interface InterruptSessionMessage {
+  type: 'interrupt_session'
+  sessionId: string
+}
+
 export interface SetModelMessage {
   type: 'set_model'
   sessionId: string
@@ -125,6 +130,7 @@ export type ClientMessage =
   | ListCommandsMessage
   | ResumeSessionMessage
   | CloseSessionMessage
+  | InterruptSessionMessage
   | SetModelMessage
   | ListModelsMessage
   | RenameSessionMessage
@@ -167,7 +173,7 @@ export interface ModelInfo {
 }
 
 // Frontend display types
-export type ChatItemType = 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'permission_request' | 'system' | 'elicitation'
+export type ChatItemType = 'user' | 'assistant' | 'tool_use' | 'tool_result' | 'permission_request' | 'system' | 'elicitation' | 'interrupt'
 
 export interface ChatItem {
   id: string
