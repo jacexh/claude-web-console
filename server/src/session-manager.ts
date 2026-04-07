@@ -132,6 +132,13 @@ export class SessionManager {
   private pendingRemaps = new Map<string, { sessionIdRef: { current: string } }>()
   // Track cwd for each session so we can resume in the correct project
   private sessionCwds = new Map<string, string>()
+  /** User-supplied creation options that must survive resume cycles */
+  private sessionCreationOptions = new Map<string, {
+    model?: string
+    permissionMode?: string
+    executableArgs?: string[]
+    env?: Record<string, string>
+  }>()
   // Cache commands extracted from SDK init messages
   private sessionCommands = new Map<string, { name: string; description: string }[]>()
   // Active stream (Query) references for control requests like setModel
@@ -344,6 +351,12 @@ export class SessionManager {
     const tempId = `pending-${Date.now()}`
     this.sessions.set(tempId, session)
     this.sessionCwds.set(tempId, cwd)
+    this.sessionCreationOptions.set(tempId, {
+      model: options?.model,
+      permissionMode: options?.permissionMode,
+      executableArgs: options?.executableArgs,
+      env: options?.env,
+    })
 
     // Store tempId in pendingRemaps for remap inside consumeStream
     this.pendingRemaps.set(tempId, { sessionIdRef })
@@ -477,6 +490,8 @@ export class SessionManager {
             if (s) { this.sessions.delete(tempId); this.sessions.set(sessionId, s) }
             const c = this.sessionCwds.get(tempId)
             if (c) { this.sessionCwds.delete(tempId); this.sessionCwds.set(sessionId, c) }
+            const opts = this.sessionCreationOptions.get(tempId)
+            if (opts) { this.sessionCreationOptions.delete(tempId); this.sessionCreationOptions.set(sessionId, opts) }
             const listeners = this.sessionListeners.get(tempId)
             if (listeners) { this.sessionListeners.delete(tempId); this.sessionListeners.set(sessionId, listeners) }
             this.streamingSessionIds.delete(tempId)
@@ -731,16 +746,20 @@ export class SessionManager {
     }
     this.closedSessionIds.delete(sessionId)
 
-    // Use the cached cwd from listSessions so claude spawns in the correct project
+    // Use the cached cwd and creation options so claude spawns with the correct config
     const cwd = this.sessionCwds.get(sessionId)
+    const cached = this.sessionCreationOptions.get(sessionId)
     const resumeSessionIdRef = { current: sessionId }
+    const pluginArgs = getPluginDirArgs()
+    const userArgs = cached?.executableArgs ?? []
     const sessionOptions = {
-      permissionMode: 'default',
+      ...(cached?.model ? { model: cached.model } : {}),
+      permissionMode: cached?.permissionMode ?? 'default',
       canUseTool: this.buildCanUseTool(resumeSessionIdRef),
       onElicitation: this.buildOnElicitation(resumeSessionIdRef),
-      env: cleanEnv(cwd),
+      env: { ...cleanEnv(cwd), ...cached?.env },
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
-      executableArgs: getPluginDirArgs(),
+      executableArgs: [...pluginArgs, ...userArgs],
     } as unknown as SDKSessionOptions
 
     const originalCwd = process.cwd()
