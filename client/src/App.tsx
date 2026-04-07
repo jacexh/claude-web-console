@@ -157,13 +157,6 @@ export function App() {
                   },
                 } : {}),
               })
-              // Add notification badge to main chat
-              store.addChatItem(sessionId, {
-                id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
-                type: 'system',
-                content: { taskId: data.task_id, status: data.status, summary: data.summary },
-                timestamp: Date.now(),
-              })
               taskMapRef.current.delete(data.task_id)
             }
             break
@@ -298,10 +291,6 @@ export function App() {
                 }
                 // Skip system-injected prompts (skill content, system reminders, etc.)
                 if (/<system-reminder>|<EXTREMELY_IMPORTANT>|<skill-name>/.test(text)) {
-                  continue
-                }
-                // Skip SDK-injected task notifications — we handle these via system events
-                if (/<task-notification>/.test(text)) {
                   continue
                 }
                 const item: ChatItem = {
@@ -615,13 +604,6 @@ export function App() {
                     durationMs: usage.duration_ms,
                   }
                 }
-                // Add notification badge to main chat
-                items.push({
-                  id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
-                  type: 'system',
-                  content: { taskId, status, summary },
-                  timestamp: 0,
-                })
               }
             }
           }

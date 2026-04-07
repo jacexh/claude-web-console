@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Terminal, ArrowUp, ArrowDown, Square, PauseCircle, HelpCircle, Pencil, GitBranch, CheckCircle, XCircle } from "lucide-react"
+import { Send, MessageSquare, Terminal, ArrowUp, ArrowDown, Square, PauseCircle, HelpCircle, Pencil, GitBranch } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -376,26 +376,6 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             onResponse={onElicitationResponse}
           />
         )
-      }
-      case 'system': {
-        const sysData = item.content as { taskId?: string; status?: string; summary?: string } | null
-        if (sysData?.taskId) {
-          const isFailed = sysData.status === 'failed' || sysData.status === 'stopped'
-          return (
-            <div key={item.id} className="flex justify-center my-2">
-              <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs ${
-                isFailed ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'
-              }`}>
-                {isFailed
-                  ? <XCircle className="h-3.5 w-3.5" />
-                  : <CheckCircle className="h-3.5 w-3.5" />
-                }
-                <span className="truncate max-w-md">{sysData.summary || (isFailed ? 'Task failed' : 'Task completed')}</span>
-              </div>
-            </div>
-          )
-        }
-        return null
       }
       default:
         return null

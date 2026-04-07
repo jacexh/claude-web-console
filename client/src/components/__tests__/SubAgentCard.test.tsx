@@ -15,6 +15,7 @@ describe('SubAgentCard with background task', () => {
     render(
       <SubAgentCard
         {...baseProps}
+        isBackground
         taskProgress={{ tokens: 2500, toolUses: 5, durationMs: 30000, lastToolName: 'Read', description: 'Reading files' }}
       />,
     )
@@ -58,6 +59,7 @@ describe('SubAgentCard with background task', () => {
     render(
       <SubAgentCard
         {...baseProps}
+        isBackground
         taskProgress={{ tokens: undefined as unknown as number, toolUses: undefined as unknown as number, durationMs: undefined as unknown as number }}
       />,
     )
