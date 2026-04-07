@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm"
 import remarkFrontmatter from "remark-frontmatter"
 import { CodeBlock, langFromPath } from "./CodeBlock"
 import { MermaidDiagram } from "./MermaidDiagram"
+import { stripSystemTags } from "@/lib/strip-system-tags"
 
 export interface Artifact {
   toolName: string
@@ -168,14 +169,18 @@ function MarkdownPreview({ markdown }: { markdown: string }) {
 
 /** Extract plain text from SDK structured content (string or [{type:"text",text:"..."}]) */
 function extractText(raw: unknown): string {
-  if (typeof raw === "string") return raw
-  if (Array.isArray(raw)) {
-    return raw
+  let text: string
+  if (typeof raw === "string") {
+    text = raw
+  } else if (Array.isArray(raw)) {
+    text = raw
       .filter((b: Record<string, unknown>) => b.type === "text" && typeof b.text === "string")
       .map((b: Record<string, unknown>) => b.text)
       .join("\n")
+  } else {
+    text = JSON.stringify(raw, null, 2)
   }
-  return JSON.stringify(raw, null, 2)
+  return stripSystemTags(text)
 }
 
 /** Strip line number prefixes from Read tool output (e.g. "  1\tcontent" → "content") */
