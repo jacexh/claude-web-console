@@ -85,6 +85,7 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
             toolName={data.name}
             input={data.input}
             result={data.result}
+            systemTags={item.systemTags}
             permission={data.permission}
             onPermissionDecision={onPermissionDecision}
             defaultCollapsed

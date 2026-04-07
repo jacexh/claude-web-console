@@ -206,4 +206,5 @@ export interface ChatItem {
   url?: string
   resolved?: boolean
   resolvedAction?: string
+  systemTags?: string[]
 }

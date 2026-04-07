@@ -7,6 +7,7 @@ import { ChatPanel } from './components/ChatPanel'
 import { ArtifactPanel, type Artifact } from './components/ArtifactPanel'
 import { ResizeHandle } from './components/ResizeHandle'
 import type { ChatItem, SessionInfo, ModelInfo, EffortLevel } from './types'
+import { extractSystemTags } from './lib/strip-system-tags'
 import type { FileEntry } from './components/FileMention'
 import { NewSessionDialog } from './components/NewSessionDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
@@ -222,10 +223,31 @@ export function App() {
                 }
                 store.addChatItem(sessionId, item)
               } else if (block.type === 'tool_result') {
+                // Separate system tags from tool result content at the data entry point
+                let cleanedResult = block.content
+                let resultSystemTags: string[] = []
+                if (typeof block.content === 'string') {
+                  const extracted = extractSystemTags(block.content)
+                  cleanedResult = extracted.content
+                  resultSystemTags = extracted.systemTags
+                } else if (Array.isArray(block.content)) {
+                  const cleanedBlocks: unknown[] = []
+                  for (const b of block.content as Array<Record<string, unknown>>) {
+                    if (b.type === 'text' && typeof b.text === 'string') {
+                      const extracted = extractSystemTags(b.text)
+                      resultSystemTags.push(...extracted.systemTags)
+                      cleanedBlocks.push({ ...b, text: extracted.content })
+                    } else {
+                      cleanedBlocks.push(b)
+                    }
+                  }
+                  cleanedResult = cleanedBlocks
+                }
                 store.updateChatItem(sessionId, block.tool_use_id as string, {
                   content: {
-                    result: block.content,
+                    result: cleanedResult,
                   },
+                  ...(resultSystemTags.length > 0 ? { systemTags: resultSystemTags } : {}),
                 })
               }
             }

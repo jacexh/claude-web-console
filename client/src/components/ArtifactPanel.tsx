@@ -7,7 +7,6 @@ import remarkGfm from "remark-gfm"
 import remarkFrontmatter from "remark-frontmatter"
 import { CodeBlock, langFromPath } from "./CodeBlock"
 import { MermaidDiagram } from "./MermaidDiagram"
-import { stripSystemTags } from "@/lib/strip-system-tags"
 
 export interface Artifact {
   toolName: string
@@ -180,7 +179,7 @@ function extractText(raw: unknown): string {
   } else {
     text = JSON.stringify(raw, null, 2)
   }
-  return stripSystemTags(text)
+  return text
 }
 
 /** Strip line number prefixes from Read tool output (e.g. "  1\tcontent" → "content") */

@@ -1,6 +1,5 @@
 import { memo, useState } from "react"
 import { cn } from "@/lib/utils"
-import { stripSystemTags } from "@/lib/strip-system-tags"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   FileText,
@@ -31,6 +30,7 @@ interface EventCardProps {
   toolName: string
   input: Record<string, unknown>
   result?: unknown
+  systemTags?: string[]
   permission?: PermissionState
   onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: PermissionSuggestion[]) => void
   defaultCollapsed?: boolean
@@ -73,7 +73,7 @@ const toolMeta: Record<string, { icon: typeof FileText; headerBg: string; bodyBg
 
 const defaultMeta = { icon: Wrench, headerBg: "bg-slate-200", bodyBg: "bg-slate-50", borderColor: "border-slate-200", textColor: "text-slate-700" }
 
-export const EventCard = memo(function EventCard({ toolUseId, toolName, input, result, permission, onPermissionDecision, defaultCollapsed = true, onSelect }: EventCardProps) {
+export const EventCard = memo(function EventCard({ toolUseId, toolName, input, result, systemTags, permission, onPermissionDecision, defaultCollapsed = true, onSelect }: EventCardProps) {
   const [open, setOpen] = useState(!defaultCollapsed)
   const [localDecided, setLocalDecided] = useState<'approved' | 'denied' | null>(null)
   const [editingRules, setEditingRules] = useState(false)
@@ -285,12 +285,22 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
                     {Object.keys(input).length > 0 && <hr className="my-2 border-t border-current/10" />}
                     <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-muted-foreground">
                       {typeof result === "string"
-                        ? (() => {
-                            const cleaned = stripSystemTags(result)
-                            return cleaned.length > 4000 ? cleaned.slice(0, 4000) + "\n… (truncated)" : cleaned
-                          })()
+                        ? (result.length > 4000 ? result.slice(0, 4000) + "\n… (truncated)" : result)
                         : JSON.stringify(result, null, 2)}
                     </pre>
+                  </>
+                )}
+                {systemTags && systemTags.length > 0 && (
+                  <>
+                    <hr className="my-2 border-t border-current/10" />
+                    <details className="text-xs text-muted-foreground/60">
+                      <summary className="cursor-pointer select-none hover:text-muted-foreground/80">
+                        system ({systemTags.length})
+                      </summary>
+                      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-all">
+                        {systemTags.join("\n---\n")}
+                      </pre>
+                    </details>
                   </>
                 )}
               </div>

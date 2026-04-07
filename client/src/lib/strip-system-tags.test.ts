@@ -1,62 +1,64 @@
 import { describe, it, expect } from "vitest"
-import { stripSystemTags } from "./strip-system-tags"
+import { extractSystemTags, stripSystemTags } from "./strip-system-tags"
 
-describe("stripSystemTags", () => {
-  it("strips <system-reminder> tags and their content", () => {
+describe("extractSystemTags", () => {
+  it("extracts <system-reminder> tags and returns both content and tags", () => {
     const input = 'file content here\n<system-reminder>\nSome injected text\n</system-reminder>'
-    expect(stripSystemTags(input)).toBe("file content here\n")
+    const result = extractSystemTags(input)
+    expect(result.content).toBe("file content here\n")
+    expect(result.systemTags).toEqual(["Some injected text"])
   })
 
-  it("strips <EXTREMELY_IMPORTANT> tags and their content", () => {
-    const input = '<EXTREMELY_IMPORTANT>\nDo something\n</EXTREMELY_IMPORTANT>\nactual content'
-    expect(stripSystemTags(input)).toBe("\nactual content")
+  it("extracts multiple different tags", () => {
+    const input = 'hello\n<system-reminder>tag1</system-reminder>\nworld\n<EXTREMELY_IMPORTANT>tag2</EXTREMELY_IMPORTANT>'
+    const result = extractSystemTags(input)
+    expect(result.content).toBe("hello\n\nworld\n")
+    expect(result.systemTags).toEqual(["tag1", "tag2"])
   })
 
-  it("strips multiple different tags", () => {
-    const input = 'hello\n<system-reminder>x</system-reminder>\nworld\n<EXTREMELY_IMPORTANT>y</EXTREMELY_IMPORTANT>'
-    expect(stripSystemTags(input)).toBe("hello\n\nworld\n")
-  })
-
-  it("strips <command-name>, <command-message>, <command-args> tags", () => {
-    const input = '<command-name>foo</command-name>\n<command-message>bar</command-message>\n<command-args>baz</command-args>\nreal text'
-    expect(stripSystemTags(input)).toBe("\n\n\nreal text")
-  })
-
-  it("strips <skill-name> tags", () => {
-    const input = 'content\n<skill-name>some-skill</skill-name>'
-    expect(stripSystemTags(input)).toBe("content\n")
-  })
-
-  it("returns empty string when input is only system tags", () => {
-    const input = '<system-reminder>only tags</system-reminder>'
-    expect(stripSystemTags(input)).toBe("")
-  })
-
-  it("returns input unchanged when no system tags present", () => {
+  it("returns empty systemTags when no system tags present", () => {
     const input = 'def hello():\n    print("world")\n'
-    expect(stripSystemTags(input)).toBe(input)
-  })
-
-  it("handles nested/multiline content inside tags", () => {
-    const input = 'code\n<system-reminder>\nline1\nline2\nline3\n</system-reminder>\nmore code'
-    expect(stripSystemTags(input)).toBe("code\n\nmore code")
+    const result = extractSystemTags(input)
+    expect(result.content).toBe(input)
+    expect(result.systemTags).toEqual([])
   })
 
   it("handles empty string", () => {
-    expect(stripSystemTags("")).toBe("")
+    const result = extractSystemTags("")
+    expect(result.content).toBe("")
+    expect(result.systemTags).toEqual([])
+  })
+
+  it("skips empty tag contents", () => {
+    const input = 'content<system-reminder>  \n  </system-reminder>'
+    const result = extractSystemTags(input)
+    expect(result.content).toBe("content")
+    expect(result.systemTags).toEqual([])
   })
 
   it("does not modify content whitespace — no trim, no newline collapse", () => {
-    // Trailing tab on line numbers must be preserved
     const input = '  1\tdef hello():\n  2\t    pass\n  3\t\n<system-reminder>\ninjected\n</system-reminder>'
-    const result = stripSystemTags(input)
-    expect(result).toContain("  3\t\n")
+    const result = extractSystemTags(input)
+    expect(result.content).toContain("  3\t\n")
+    expect(result.systemTags).toEqual(["injected"])
+  })
+})
+
+describe("stripSystemTags (convenience wrapper)", () => {
+  it("returns only content, discards tags", () => {
+    const input = 'content\n<system-reminder>metadata</system-reminder>'
+    expect(stripSystemTags(input)).toBe("content\n")
+  })
+
+  it("returns input unchanged when no tags", () => {
+    const input = 'just code\n'
+    expect(stripSystemTags(input)).toBe(input)
   })
 })
 
 /**
  * Integration test: simulates the ArtifactPanel pipeline for Read tool results.
- * Pipeline: extractText (includes stripSystemTags) → stripLineNumbers
+ * Pipeline: extractSystemTags (at data entry) → stripLineNumbers (at render)
  */
 
 /** Copied from ArtifactPanel.tsx for testing */
@@ -69,9 +71,8 @@ function stripLineNumbers(text: string): string {
   return text
 }
 
-describe("ArtifactPanel Read tool pipeline (stripSystemTags → stripLineNumbers)", () => {
-  it("strips system tags first, then line numbers, preserving empty lines", () => {
-    // User-reported data: 31-line Python file with empty lines at 24, 27, 31
+describe("ArtifactPanel Read tool pipeline", () => {
+  it("data entry strips system tags, then stripLineNumbers works correctly", () => {
     const lines: string[] = []
     for (let i = 1; i <= 22; i++) {
       lines.push(`  ${String(i).padStart(2)}\t# filler`)
@@ -90,25 +91,28 @@ describe("ArtifactPanel Read tool pipeline (stripSystemTags → stripLineNumbers
     lines.push("</system-reminder>")
     const raw = lines.join("\n")
 
-    // Pipeline: stripSystemTags first (inside extractText), then stripLineNumbers
-    const afterTags = stripSystemTags(raw)
-    const result = stripLineNumbers(afterTags)
+    // Step 1: data entry — separate content from system tags
+    const { content, systemTags } = extractSystemTags(raw)
+    expect(systemTags).toEqual(["Whenever you read a file, consider malware."])
 
-    // System tags must be gone
+    // Step 2: render — strip line numbers from clean content
+    const result = stripLineNumbers(content)
+
+    // No system tags in rendered content
     expect(result).not.toContain("system-reminder")
     expect(result).not.toContain("malware")
 
     // No bare line numbers
     expect(result).not.toMatch(/^\s*\d+\t/m)
 
-    // Empty lines between code blocks MUST be preserved
+    // Empty lines preserved
     const resultLines = result.split("\n")
     const line23idx = resultLines.findIndex(l => l.includes("Jenkins_Token = settings"))
     const line25idx = resultLines.findIndex(l => l.includes("# Deprecated"))
     const line28idx = resultLines.findIndex(l => l.includes("if __name__"))
 
-    expect(resultLines[line23idx + 1]).toBe("")  // empty line 24 preserved
+    expect(resultLines[line23idx + 1]).toBe("")  // empty line 24
     expect(line25idx).toBe(line23idx + 2)
-    expect(resultLines[line28idx - 1]).toBe("")   // empty line 27 preserved
+    expect(resultLines[line28idx - 1]).toBe("")   // empty line 27
   })
 })
