@@ -68,32 +68,24 @@ function parseUserContent(raw: string): ParsedContent {
   return { text, command, stdout, taskNotification }
 }
 
-function TaskNotificationBadge({ taskId, status, summary }: { taskId: string; status: string; summary: string }) {
-  const isFailed = status === "failed"
+function TaskNotificationBadge({ status, summary }: { taskId: string; status: string; summary: string }) {
+  const isFailed = status === "failed" || status === "stopped"
   return (
-    <div className="ml-10 my-2">
-      <div className={`inline-flex items-center gap-3 rounded-lg px-4 py-2.5 border shadow-soft ${
-        isFailed
-          ? "bg-[#fef2f2] border-[#f5c6c6]"
-          : "bg-[#f0faf0] border-[#c6e6c6]"
+    <div className="flex justify-center my-2">
+      <div className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-xs ${
+        isFailed ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
       }`}>
         {isFailed ? (
-          <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+          <XCircle className="h-3.5 w-3.5 shrink-0" />
         ) : (
-          <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0" />
+          <CheckCircle className="h-3.5 w-3.5 shrink-0" />
         )}
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <Bell className="h-3 w-3 text-muted-foreground" />
-            <span className="font-mono text-xs text-muted-foreground">task/{taskId.slice(0, 8)}</span>
-            <span className={`text-xs font-medium ${isFailed ? "text-red-700" : "text-emerald-700"}`}>
-              {status}
-            </span>
-          </div>
-          {summary && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[300px]">{summary}</p>
-          )}
-        </div>
+        <span className="font-medium">
+          {status === "completed" ? "Task completed" : status === "failed" ? "Task failed" : "Task stopped"}
+        </span>
+        {summary && (
+          <span className="text-muted-foreground truncate max-w-xs">— {summary}</span>
+        )}
       </div>
     </div>
   )

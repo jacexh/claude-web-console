@@ -24,13 +24,14 @@ describe('SubAgentCard with background task', () => {
     expect(screen.getByText('Read')).toBeTruthy()
   })
 
-  it('shows stop button when taskStatus is running', () => {
+  it('shows stop button when taskStatus is running and isBackground', () => {
     const onStopTask = vi.fn()
     render(
       <SubAgentCard
         {...baseProps}
         taskId="task-1"
         taskStatus="running"
+        isBackground
         onStopTask={onStopTask}
       />,
     )

@@ -157,6 +157,13 @@ export function App() {
                   },
                 } : {}),
               })
+              // Add notification badge to main chat
+              store.addChatItem(sessionId, {
+                id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                type: 'system',
+                content: { taskId: data.task_id, status: data.status, summary: data.summary },
+                timestamp: Date.now(),
+              })
               taskMapRef.current.delete(data.task_id)
             }
             break
@@ -291,6 +298,10 @@ export function App() {
                 }
                 // Skip system-injected prompts (skill content, system reminders, etc.)
                 if (/<system-reminder>|<EXTREMELY_IMPORTANT>|<skill-name>/.test(text)) {
+                  continue
+                }
+                // Skip SDK-injected task notifications — we handle these via system events
+                if (/<task-notification>/.test(text)) {
                   continue
                 }
                 const item: ChatItem = {
@@ -461,19 +472,25 @@ export function App() {
             } else if (msgType === 'user') {
               const content = message.content
               if (!parentId && typeof content === 'string') {
-                items.push({
-                  id: uuid(),
-                  type: 'user',
-                  content,
-                  timestamp: 0,
-                })
+                // Skip SDK-injected task notifications
+                if (!/<task-notification>/.test(content)) {
+                  items.push({
+                    id: uuid(),
+                    type: 'user',
+                    content,
+                    timestamp: 0,
+                  })
+                }
               } else if (Array.isArray(content)) {
                 for (const block of content as Array<Record<string, unknown>>) {
                   if (block.type === 'text' && !parentId) {
+                    const blockText = block.text as string
+                    // Skip SDK-injected task notifications
+                    if (/<task-notification>/.test(blockText)) continue
                     items.push({
                       id: uuid(),
                       type: 'user',
-                      content: block.text as string,
+                      content: blockText,
                       timestamp: 0,
                     })
                   } else if (block.type === 'tool_result') {
@@ -487,6 +504,71 @@ export function App() {
                     }
                   }
                 }
+              }
+            }
+          }
+
+          // Second pass: process task events (task_started / task_notification)
+          // to populate taskId, taskStatus, and overwrite launch text with summary
+          const toolUseById = new Map<string, ChatItem>()
+          for (const it of items) {
+            if (it.type === 'tool_use') toolUseById.set(it.id, it)
+          }
+          for (const [, subs] of subagentItems) {
+            for (const it of subs) {
+              if (it.type === 'tool_use') toolUseById.set(it.id, it)
+            }
+          }
+          for (const msg of messages) {
+            const msgType = msg.type as string
+            if (msgType !== 'system') continue
+            const subtype = (msg as Record<string, unknown>).subtype as string | undefined
+            if (subtype === 'task_started') {
+              const toolUseId = (msg as Record<string, unknown>).tool_use_id as string | undefined
+              const taskId = (msg as Record<string, unknown>).task_id as string
+              if (toolUseId) {
+                const item = toolUseById.get(toolUseId)
+                if (item) {
+                  item.taskId = taskId
+                  item.taskStatus = 'running'
+                }
+              }
+            } else if (subtype === 'task_notification') {
+              const toolUseId = (msg as Record<string, unknown>).tool_use_id as string | undefined
+              const taskId = (msg as Record<string, unknown>).task_id as string
+              const status = (msg as Record<string, unknown>).status as string
+              const summary = (msg as Record<string, unknown>).summary as string
+              const usage = (msg as Record<string, unknown>).usage as { total_tokens: number; tool_uses: number; duration_ms: number } | undefined
+              // Find item by tool_use_id or taskId
+              let item: ChatItem | undefined
+              if (toolUseId) item = toolUseById.get(toolUseId)
+              if (!item) {
+                for (const it of toolUseById.values()) {
+                  if (it.taskId === taskId) { item = it; break }
+                }
+              }
+              if (item) {
+                item.taskStatus = status as ChatItem['taskStatus']
+                if (summary) {
+                  const existing = typeof item.content === 'object' && item.content !== null
+                    ? (item.content as Record<string, unknown>)
+                    : {}
+                  item.content = { ...existing, result: summary }
+                }
+                if (usage) {
+                  item.taskProgress = {
+                    tokens: usage.total_tokens,
+                    toolUses: usage.tool_uses,
+                    durationMs: usage.duration_ms,
+                  }
+                }
+                // Add notification badge to main chat
+                items.push({
+                  id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                  type: 'system',
+                  content: { taskId, status, summary },
+                  timestamp: 0,
+                })
               }
             }
           }

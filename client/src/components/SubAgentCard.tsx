@@ -26,10 +26,11 @@ interface SubAgentCardProps {
     lastToolName?: string
     description?: string
   }
+  isBackground?: boolean
   onStopTask?: (sessionId: string, taskId: string) => void
 }
 
-export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision, taskId, taskStatus, taskProgress, onStopTask }: SubAgentCardProps) {
+export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision, taskId, taskStatus, taskProgress, isBackground, onStopTask }: SubAgentCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Auto-expand when subagent starts streaming messages
@@ -118,7 +119,7 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
           <span className="text-sm font-medium text-violet-800 truncate max-w-xs">{description}</span>
         </div>
         <div className="flex items-center">
-          {taskId && taskStatus === 'running' && onStopTask && (
+          {isBackground && taskId && taskStatus === 'running' && onStopTask && (
             <button
               aria-label="Stop task"
               className="text-xs px-2.5 py-1 rounded-md border border-red-300 bg-red-50 text-red-700 font-medium shadow-sm hover:bg-red-100 hover:border-red-400 active:bg-red-200 transition-colors cursor-pointer mr-2"
