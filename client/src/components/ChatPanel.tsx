@@ -333,14 +333,16 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         // Background task status line
         if (data.emoji) {
           return (
-            <div key={item.id} className={`flex items-center justify-center gap-2 my-1.5 px-4 py-2 rounded-lg border text-sm ${
-              data.emoji === '❌' ? 'bg-red-50 border-red-200 text-red-700'
-              : data.emoji === '✅' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-[#f5f0ff] border-[#d4c5f9] text-violet-700'
-            }`}>
-              <span>{data.emoji}</span>
-              <span className="font-medium">{data.name}</span>
-              {data.summary && data.summary !== 'started' && <span className="opacity-70">— {data.summary}</span>}
+            <div key={item.id} className="flex justify-center my-1.5 animate-[slideIn_0.3s_ease-out]">
+              <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-sm ${
+                data.emoji === '❌' ? 'bg-red-50 border-red-200 text-red-700'
+                : data.emoji === '✅' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-[#f5f0ff] border-[#d4c5f9] text-violet-700'
+              }`}>
+                <span>{data.emoji}</span>
+                <span className="font-medium">{data.name}</span>
+                {data.summary && data.summary !== 'started' && <span className="opacity-70">— {data.summary}</span>}
+              </span>
             </div>
           )
         }
