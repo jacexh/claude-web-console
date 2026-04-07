@@ -472,8 +472,35 @@ export function App() {
             } else if (msgType === 'user') {
               const content = message.content
               if (!parentId && typeof content === 'string') {
-                // Skip SDK-injected task notifications
-                if (!/<task-notification>/.test(content)) {
+                // Parse task notifications: extract data, render as badge, update SubAgentCard
+                const taskMatch = content.match(/<task-notification>([\s\S]*?)<\/task-notification>/)
+                if (taskMatch) {
+                  const block = taskMatch[1]
+                  const nTaskId = block.match(/<task-id>(.*?)<\/task-id>/)?.[1] ?? ''
+                  const nStatus = block.match(/<status>(.*?)<\/status>/)?.[1] ?? ''
+                  const nSummary = block.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
+                  const nToolUseId = block.match(/<tool-use-id>(.*?)<\/tool-use-id>/)?.[1]
+                  // Update the Agent tool_use ChatItem
+                  if (nToolUseId) {
+                    const toolItem = toolUseMap.get(nToolUseId) ?? subagentToolUseMap.get(nToolUseId)
+                    if (toolItem) {
+                      toolItem.taskId = nTaskId
+                      toolItem.taskStatus = nStatus as ChatItem['taskStatus']
+                      if (nSummary) {
+                        const existing = typeof toolItem.content === 'object' && toolItem.content !== null
+                          ? (toolItem.content as Record<string, unknown>) : {}
+                        toolItem.content = { ...existing, result: nSummary }
+                      }
+                    }
+                  }
+                  // Add notification badge
+                  items.push({
+                    id: uuid(),
+                    type: 'system',
+                    content: { taskId: nTaskId, status: nStatus, summary: nSummary },
+                    timestamp: 0,
+                  })
+                } else {
                   items.push({
                     id: uuid(),
                     type: 'user',
@@ -485,8 +512,34 @@ export function App() {
                 for (const block of content as Array<Record<string, unknown>>) {
                   if (block.type === 'text' && !parentId) {
                     const blockText = block.text as string
-                    // Skip SDK-injected task notifications
-                    if (/<task-notification>/.test(blockText)) continue
+                    // Parse task notifications from text blocks
+                    const taskMatch = blockText.match(/<task-notification>([\s\S]*?)<\/task-notification>/)
+                    if (taskMatch) {
+                      const tb = taskMatch[1]
+                      const nTaskId = tb.match(/<task-id>(.*?)<\/task-id>/)?.[1] ?? ''
+                      const nStatus = tb.match(/<status>(.*?)<\/status>/)?.[1] ?? ''
+                      const nSummary = tb.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
+                      const nToolUseId = tb.match(/<tool-use-id>(.*?)<\/tool-use-id>/)?.[1]
+                      if (nToolUseId) {
+                        const toolItem = toolUseMap.get(nToolUseId) ?? subagentToolUseMap.get(nToolUseId)
+                        if (toolItem) {
+                          toolItem.taskId = nTaskId
+                          toolItem.taskStatus = nStatus as ChatItem['taskStatus']
+                          if (nSummary) {
+                            const existing = typeof toolItem.content === 'object' && toolItem.content !== null
+                              ? (toolItem.content as Record<string, unknown>) : {}
+                            toolItem.content = { ...existing, result: nSummary }
+                          }
+                        }
+                      }
+                      items.push({
+                        id: uuid(),
+                        type: 'system',
+                        content: { taskId: nTaskId, status: nStatus, summary: nSummary },
+                        timestamp: 0,
+                      })
+                      continue
+                    }
                     items.push({
                       id: uuid(),
                       type: 'user',

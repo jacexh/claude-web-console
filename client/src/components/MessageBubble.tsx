@@ -80,12 +80,7 @@ function TaskNotificationBadge({ status, summary }: { taskId: string; status: st
         ) : (
           <CheckCircle className="h-3.5 w-3.5 shrink-0" />
         )}
-        <span className="font-medium">
-          {status === "completed" ? "Task completed" : status === "failed" ? "Task failed" : "Task stopped"}
-        </span>
-        {summary && (
-          <span className="text-muted-foreground truncate max-w-xs">— {summary}</span>
-        )}
+        <span className="truncate max-w-md">{summary || (isFailed ? "Task failed" : "Task completed")}</span>
       </div>
     </div>
   )

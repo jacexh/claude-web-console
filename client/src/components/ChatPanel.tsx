@@ -390,12 +390,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
                   ? <XCircle className="h-3.5 w-3.5" />
                   : <CheckCircle className="h-3.5 w-3.5" />
                 }
-                <span className="font-medium">
-                  {sysData.status === 'completed' ? 'Task completed' : sysData.status === 'failed' ? 'Task failed' : 'Task stopped'}
-                </span>
-                {sysData.summary && (
-                  <span className="text-muted-foreground truncate max-w-xs">— {sysData.summary}</span>
-                )}
+                <span className="truncate max-w-md">{sysData.summary || (isFailed ? 'Task failed' : 'Task completed')}</span>
               </div>
             </div>
           )

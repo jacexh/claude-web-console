@@ -40,6 +40,13 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
     }
   }, [status, subagentMessages])
 
+  // Auto-fetch messages when background task completes
+  useEffect(() => {
+    if (isBackground && taskStatus && taskStatus !== 'running' && !subagentMessages) {
+      onExpand(sessionId, agentId)
+    }
+  }, [isBackground, taskStatus, subagentMessages, onExpand, sessionId, agentId])
+
   const handleToggle = () => {
     if (!expanded && !subagentMessages) {
       onExpand(sessionId, agentId)
