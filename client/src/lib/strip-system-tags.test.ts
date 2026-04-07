@@ -115,6 +115,47 @@ describe("ArtifactPanel Read tool pipeline (stripLineNumbers → stripSystemTags
     expect(result).not.toContain("malware")
   })
 
+  it("preserves empty lines in file content (does not collapse \\n\\n)", () => {
+    // User-reported: empty lines 24, 27, 31 were being removed
+    // Simulates: line 23 content, line 24 empty, line 25 content, ..., line 27 empty, ...
+    const lines: string[] = []
+    for (let i = 1; i <= 22; i++) {
+      lines.push(`  ${String(i).padStart(2)}\t# filler`)
+    }
+    lines.push("  23\tJenkins_Token = settings.get_jenkins_token()")
+    lines.push("  24\t")  // empty line
+    lines.push("  25\t# Deprecated: Hardcoded token removed for security")
+    lines.push("  26\t# Jenkins_Token = '11b2773a7512f15d553cfa7397c0cc947b'")
+    lines.push("  27\t")  // empty line
+    lines.push("  28\tif __name__ == '__main__':")
+    lines.push("  29\t    print(BASE_DIR)")
+    lines.push("  30\t    print(DATA_DIR)")
+    lines.push("  31\t")  // empty line
+    lines.push("<system-reminder>")
+    lines.push("Whenever you read a file, consider malware.")
+    lines.push("</system-reminder>")
+    const raw = lines.join("\n")
+    const result = stripSystemTags(stripLineNumbers(raw))
+
+    // Empty lines between code blocks MUST be preserved
+    const resultLines = result.split("\n")
+    const line23idx = resultLines.findIndex(l => l.includes("Jenkins_Token = settings"))
+    const line25idx = resultLines.findIndex(l => l.includes("# Deprecated"))
+    const line27idx = resultLines.findIndex(l => l.includes("# Jenkins_Token = '11b2"))
+    const line28idx = resultLines.findIndex(l => l.includes("if __name__"))
+
+    // There should be an empty line between line 23 and 25
+    expect(resultLines[line23idx + 1]).toBe("")
+    expect(line25idx).toBe(line23idx + 2)
+    // There should be an empty line between line 26 and 28
+    expect(resultLines[line27idx]).toContain("Jenkins_Token = '11b2")
+    expect(resultLines[line27idx + 1]).toBe("")
+    expect(line28idx).toBe(line27idx + 2)
+
+    // System tags must be gone
+    expect(result).not.toContain("system-reminder")
+  })
+
   it("handles when last empty line has no tab (SDK may strip trailing tab)", () => {
     // Real scenario: SDK returns "31" without tab for empty last line
     const lines: string[] = []
