@@ -20,6 +20,27 @@ function uuid(): string {
   })
 }
 
+/** Separate system tags from a tool_result content value (string or content block array) */
+function cleanToolResult(raw: unknown): { result: unknown; systemTags: string[] } {
+  const systemTags: string[] = []
+  if (typeof raw === 'string') {
+    const extracted = extractSystemTags(raw)
+    return { result: extracted.content, systemTags: extracted.systemTags }
+  }
+  if (Array.isArray(raw)) {
+    const cleaned = (raw as Array<Record<string, unknown>>).map(b => {
+      if (b.type === 'text' && typeof b.text === 'string') {
+        const extracted = extractSystemTags(b.text)
+        systemTags.push(...extracted.systemTags)
+        return { ...b, text: extracted.content }
+      }
+      return b
+    })
+    return { result: cleaned, systemTags }
+  }
+  return { result: raw, systemTags }
+}
+
 export function App() {
   const store = useSessionStore()
   const [artifact, setArtifact] = useState<Artifact | null>(null)
@@ -127,11 +148,15 @@ export function App() {
               for (const block of content) {
                 if (block.type === 'tool_result') {
                   const toolUseId = block.tool_use_id as string
+                  const cleaned = cleanToolResult(block.content)
                   // Check if this is the Agent tool's own result (toolUseId === parentToolUseId)
                   // or a result for a tool inside the subagent
                   if (toolUseId === parentToolUseId) {
                     // This is the Agent tool's result — update main chat item
-                    store.updateChatItem(sessionId, toolUseId, { content: { result: block.content } })
+                    store.updateChatItem(sessionId, toolUseId, {
+                      content: { result: cleaned.result },
+                      ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}),
+                    })
                   } else {
                     // Result for a tool inside the subagent
                     setSubagentMessages(prev => {
@@ -141,7 +166,7 @@ export function App() {
                         ...prev,
                         [key]: items.map(it =>
                           it.id === toolUseId
-                            ? { ...it, content: { ...(it.content as Record<string, unknown>), result: block.content } }
+                            ? { ...it, content: { ...(it.content as Record<string, unknown>), result: cleaned.result }, ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}) }
                             : it
                         ),
                       }
@@ -223,31 +248,10 @@ export function App() {
                 }
                 store.addChatItem(sessionId, item)
               } else if (block.type === 'tool_result') {
-                // Separate system tags from tool result content at the data entry point
-                let cleanedResult = block.content
-                let resultSystemTags: string[] = []
-                if (typeof block.content === 'string') {
-                  const extracted = extractSystemTags(block.content)
-                  cleanedResult = extracted.content
-                  resultSystemTags = extracted.systemTags
-                } else if (Array.isArray(block.content)) {
-                  const cleanedBlocks: unknown[] = []
-                  for (const b of block.content as Array<Record<string, unknown>>) {
-                    if (b.type === 'text' && typeof b.text === 'string') {
-                      const extracted = extractSystemTags(b.text)
-                      resultSystemTags.push(...extracted.systemTags)
-                      cleanedBlocks.push({ ...b, text: extracted.content })
-                    } else {
-                      cleanedBlocks.push(b)
-                    }
-                  }
-                  cleanedResult = cleanedBlocks
-                }
+                const cleaned = cleanToolResult(block.content)
                 store.updateChatItem(sessionId, block.tool_use_id as string, {
-                  content: {
-                    result: cleanedResult,
-                  },
-                  ...(resultSystemTags.length > 0 ? { systemTags: resultSystemTags } : {}),
+                  content: { result: cleaned.result },
+                  ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}),
                 })
               }
             }
@@ -421,11 +425,12 @@ export function App() {
                     })
                   } else if (block.type === 'tool_result') {
                     const toolUseId = block.tool_use_id as string
-                    // Check subagent tool_use first, then main
                     const toolItem = subagentToolUseMap.get(toolUseId) ?? toolUseMap.get(toolUseId)
                     if (toolItem) {
                       const existing = toolItem.content as Record<string, unknown>
-                      toolItem.content = { ...existing, result: block.content }
+                      const cleaned = cleanToolResult(block.content)
+                      toolItem.content = { ...existing, result: cleaned.result }
+                      if (cleaned.systemTags.length > 0) toolItem.systemTags = cleaned.systemTags
                     }
                   }
                 }
@@ -627,7 +632,9 @@ export function App() {
                 const toolUseId = block.tool_use_id as string
                 const existing = items.find(it => it.id === toolUseId)
                 if (existing) {
-                  existing.content = { ...(existing.content as Record<string, unknown>), result: block.content }
+                  const cleaned = cleanToolResult(block.content)
+                  existing.content = { ...(existing.content as Record<string, unknown>), result: cleaned.result }
+                  if (cleaned.systemTags.length > 0) existing.systemTags = cleaned.systemTags
                 }
               }
             }
