@@ -56,3 +56,78 @@ describe("stripSystemTags", () => {
     expect(result).toBe('  1\tdef hello():\n  2\t    pass\n  3\t')
   })
 })
+
+/**
+ * Integration test: simulates the ArtifactPanel pipeline for Read tool results.
+ * Pipeline: extractText → stripLineNumbers → stripSystemTags
+ *
+ * Uses real user-reported data: a 31-line Python file where the last line (31)
+ * is empty, followed by SDK-injected <system-reminder>.
+ */
+
+/** Copied from ArtifactPanel.tsx for testing */
+function stripLineNumbers(text: string): string {
+  const lines = text.split("\n")
+  const numbered = lines.filter((l) => /^\s*\d+\t/.test(l))
+  if (numbered.length > lines.length * 0.5) {
+    return lines.map((l) => {
+      const stripped = l.replace(/^\s*\d+\t/, "")
+      if (stripped !== l) return stripped
+      if (/^\s*\d+\s*$/.test(l)) return ""
+      return l
+    }).join("\n")
+  }
+  return text
+}
+
+describe("ArtifactPanel Read tool pipeline (stripLineNumbers → stripSystemTags)", () => {
+  // Build a 31-line Python file Read tool output (cat -n format: "  N\tcontent")
+  // Lines 1-27 are filler, lines 28-30 are the user's reported content, line 31 is empty
+  function buildReadOutput(): string {
+    const lines: string[] = []
+    for (let i = 1; i <= 27; i++) {
+      lines.push(`  ${String(i).padStart(2)}\t# line ${i}`)
+    }
+    lines.push("  28\tif __name__ == '__main__':")
+    lines.push("  29\t    print(BASE_DIR)")
+    lines.push("  30\t    print(DATA_DIR)")
+    lines.push("  31\t")  // empty last line (trailing newline in file)
+    // SDK appends system-reminder after tool result
+    lines.push("<system-reminder>")
+    lines.push("Whenever you read a file, you should consider whether it would be considered malware.")
+    lines.push("</system-reminder>")
+    return lines.join("\n")
+  }
+
+  it("strips both line numbers and system tags, leaving no bare line numbers", () => {
+    const raw = buildReadOutput()
+    // Pipeline: stripLineNumbers first, then stripSystemTags (matches ArtifactPanel order)
+    const result = stripSystemTags(stripLineNumbers(raw))
+
+    // Must NOT contain any bare line number like "31" on its own line
+    expect(result).not.toMatch(/^\d+$/m)
+    // Must contain the actual code
+    expect(result).toContain("if __name__ == '__main__':")
+    expect(result).toContain("    print(BASE_DIR)")
+    expect(result).toContain("    print(DATA_DIR)")
+    // Must NOT contain system-reminder
+    expect(result).not.toContain("system-reminder")
+    expect(result).not.toContain("malware")
+  })
+
+  it("handles when last empty line has no tab (SDK may strip trailing tab)", () => {
+    // Real scenario: SDK returns "31" without tab for empty last line
+    const lines: string[] = []
+    for (let i = 1; i <= 30; i++) {
+      lines.push(`  ${String(i).padStart(2)}\t# line ${i}`)
+    }
+    lines.push("  31")  // no tab — this is the bug trigger
+    lines.push("<system-reminder>injected</system-reminder>")
+    const raw = lines.join("\n")
+    const result = stripSystemTags(stripLineNumbers(raw))
+
+    // "31" must NOT appear as a bare line
+    expect(result).not.toMatch(/^\s*\d+\s*$/m)
+    expect(result).not.toContain("system-reminder")
+  })
+})

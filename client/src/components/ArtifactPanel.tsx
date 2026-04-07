@@ -189,7 +189,14 @@ function stripLineNumbers(text: string): string {
   // Check if most lines match the pattern: optional spaces + number + tab
   const numbered = lines.filter((l) => /^\s*\d+\t/.test(l))
   if (numbered.length > lines.length * 0.5) {
-    return lines.map((l) => l.replace(/^\s*\d+\t/, "")).join("\n")
+    return lines.map((l) => {
+      // Standard numbered line: "  N\tcontent"
+      const stripped = l.replace(/^\s*\d+\t/, "")
+      if (stripped !== l) return stripped
+      // Empty numbered line where tab was stripped by SDK: "  N" or "N"
+      if (/^\s*\d+\s*$/.test(l)) return ""
+      return l
+    }).join("\n")
   }
   return text
 }
