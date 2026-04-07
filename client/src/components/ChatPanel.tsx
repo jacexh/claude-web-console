@@ -56,7 +56,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -298,6 +298,10 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               onExpand={onGetSubagentMessages}
               onSelectArtifact={onSelectArtifact}
               onPermissionDecision={onPermissionDecision}
+              taskId={item.taskId}
+              taskStatus={item.taskStatus}
+              taskProgress={item.taskProgress}
+              onStopTask={onStopTask}
             />
           )
         }
@@ -362,7 +366,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       default:
         return null
     }
-  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages, onElicitationResponse])
+  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages, onElicitationResponse, onStopTask])
 
   const renderedHistory = useMemo(() => history.map(renderChatItem), [history, renderChatItem])
   const renderedMessages = useMemo(() => messages.map(renderChatItem), [messages, renderChatItem])

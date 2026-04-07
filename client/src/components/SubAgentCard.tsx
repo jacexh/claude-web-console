@@ -17,9 +17,19 @@ interface SubAgentCardProps {
   onExpand: (sessionId: string, agentId: string) => void
   onSelectArtifact?: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
   onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('../types').PermissionSuggestion[]) => void
+  taskId?: string
+  taskStatus?: 'running' | 'completed' | 'failed' | 'stopped'
+  taskProgress?: {
+    tokens: number
+    toolUses: number
+    durationMs: number
+    lastToolName?: string
+    description?: string
+  }
+  onStopTask?: (sessionId: string, taskId: string) => void
 }
 
-export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision }: SubAgentCardProps) {
+export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision, taskId, taskStatus, taskProgress, onStopTask }: SubAgentCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Auto-expand when subagent starts streaming messages
@@ -107,10 +117,32 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
           {agentName && <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-[#e4d8f9] text-violet-700">{agentName}</span>}
           <span className="text-sm font-medium text-violet-800 truncate max-w-xs">{description}</span>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[status]}`}>
-          {status}
-        </span>
+        <div className="flex items-center">
+          {taskId && taskStatus === 'running' && onStopTask && (
+            <button
+              aria-label="Stop task"
+              className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-600 hover:bg-red-200 mr-2"
+              onClick={(e) => { e.stopPropagation(); onStopTask(sessionId, taskId) }}
+            >
+              Stop
+            </button>
+          )}
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[status]}`}>
+            {status}
+          </span>
+        </div>
       </div>
+      {/* Task progress */}
+      {taskProgress && (
+        <div className="px-4 py-2 text-xs text-slate-600 flex items-center gap-3 border-b border-[#d4c5f9]/30">
+          <span>{taskProgress.tokens.toLocaleString()} tokens</span>
+          <span>{taskProgress.toolUses} tools</span>
+          <span>{Math.round(taskProgress.durationMs / 1000)}s</span>
+          {taskProgress.lastToolName && (
+            <span className="font-mono text-violet-600">{taskProgress.lastToolName}</span>
+          )}
+        </div>
+      )}
       {/* Body */}
       {resultPreview && !expanded && (
         <div className="px-4 py-2 text-xs text-slate-500 truncate">{resultPreview}</div>
