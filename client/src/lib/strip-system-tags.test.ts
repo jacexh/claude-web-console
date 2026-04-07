@@ -45,4 +45,14 @@ describe("stripSystemTags", () => {
   it("handles non-string input gracefully", () => {
     expect(stripSystemTags("")).toBe("")
   })
+
+  it("preserves trailing whitespace within content lines after stripping tags", () => {
+    // Simulates Read tool output: line numbers end with \t, last line may be "  3\t"
+    // stripSystemTags should NOT strip the trailing \t from content lines
+    // (trim only applies to the overall string boundaries)
+    const input = '  1\tdef hello():\n  2\t    pass\n  3\t\n<system-reminder>\ninjected\n</system-reminder>'
+    const result = stripSystemTags(input)
+    // After stripping tags and trimming, the line "  3\t" should retain its tab
+    expect(result).toBe('  1\tdef hello():\n  2\t    pass\n  3\t')
+  })
 })

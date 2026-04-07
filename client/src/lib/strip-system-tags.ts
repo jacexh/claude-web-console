@@ -11,5 +11,5 @@ export function stripSystemTags(text: string): string {
   if (!text) return text
   const replaced = text.replace(SYSTEM_TAG_PATTERN, "")
   if (replaced === text) return text
-  return replaced.replace(/\n{2,}/g, "\n").trim()
+  return replaced.replace(/\n{2,}/g, "\n").replace(/^\n+|\n+$/g, "")
 }
