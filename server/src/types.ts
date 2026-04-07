@@ -65,6 +65,12 @@ export interface InterruptSessionMessage {
   sessionId: string
 }
 
+export interface StopTaskMessage {
+  type: 'stop_task'
+  sessionId: string
+  taskId: string
+}
+
 export interface SetModelMessage {
   type: 'set_model'
   sessionId: string
@@ -126,6 +132,7 @@ export type ClientMessage =
   | ResumeSessionMessage
   | CloseSessionMessage
   | InterruptSessionMessage
+  | StopTaskMessage
   | SetModelMessage
   | ListModelsMessage
   | RenameSessionMessage

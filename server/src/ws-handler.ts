@@ -227,6 +227,15 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             break
           }
 
+          case 'stop_task': {
+            try {
+              await sessionManager.stopTask(msg.sessionId, msg.taskId)
+            } catch (err) {
+              log.warn({ err, sessionId: msg.sessionId, taskId: msg.taskId }, 'Failed to stop task')
+            }
+            break
+          }
+
           case 'permission_decision': {
             sessionManager.resolvePermission(
               msg.toolUseId,

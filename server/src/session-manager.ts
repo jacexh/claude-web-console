@@ -662,6 +662,18 @@ export class SessionManager {
     await query.interrupt()
   }
 
+  async stopTask(sessionId: string, taskId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    const s = session as unknown as { stopTask(taskId: string): Promise<void> }
+    if (!s.stopTask) {
+      throw new Error(`Session ${sessionId} does not support stopTask`)
+    }
+    await s.stopTask(taskId)
+  }
+
   async sendMessage(sessionId: string, content: string): Promise<void> {
     this.log.info({ sessionId, content: content.slice(0, 50) }, 'sendMessage: sending to SDK')
     const session = this.sessions.get(sessionId)
