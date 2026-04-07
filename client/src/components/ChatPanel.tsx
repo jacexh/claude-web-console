@@ -272,16 +272,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           const hasResult = data.result != null
           const isError = Array.isArray(data.result) &&
             (data.result as Array<{ type: string; is_error?: boolean }>).some(b => b.is_error === true)
-          // For background tasks, taskStatus takes precedence over the derived status
-          const taskStatus = item.taskStatus
-          const derivedStatus: 'running' | 'done' | 'error' = isError ? 'error' : hasResult ? 'done' : sessionRunning ? 'running' : 'done'
-          const status: 'running' | 'done' | 'error' = taskStatus === 'failed' || taskStatus === 'stopped'
-            ? 'error'
-            : taskStatus === 'completed'
-              ? 'done'
-              : taskStatus === 'running'
-                ? 'running'
-                : derivedStatus
+          const status: 'running' | 'done' | 'error' = isError ? 'error' : hasResult ? 'done' : sessionRunning ? 'running' : 'done'
           const resultContent = data.result
           let resultText: string | undefined
           if (resultContent != null) {
@@ -291,10 +282,6 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               const textBlock = (resultContent as Array<{ type: string; text?: string }>).find(b => b.type === 'text')
               if (textBlock?.text) resultText = textBlock.text
             }
-          }
-          // Suppress "Async agent launched..." launch text for background tasks
-          if (resultText && /^Async agent launched/.test(resultText)) {
-            resultText = undefined
           }
           return (
             <SubAgentCard
@@ -311,11 +298,8 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               onExpand={onGetSubagentMessages}
               onSelectArtifact={onSelectArtifact}
               onPermissionDecision={onPermissionDecision}
-              taskId={item.taskId}
-              taskStatus={item.taskStatus}
-              taskProgress={item.taskProgress}
-              isBackground={Boolean(toolInput.run_in_background)}
-              onStopTask={onStopTask}
+
+
             />
           )
         }
@@ -334,7 +318,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         )
       }
       case "system": {
-        const data = item.content as { command?: string }
+        const data = item.content as { command?: string; emoji?: string; name?: string; summary?: string }
         if (data.command) {
           return (
             <div key={item.id} className="flex items-center gap-4 my-4">
@@ -343,6 +327,16 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
                 {data.command} sent
               </span>
               <div className="flex-1 h-px bg-slate-200" />
+            </div>
+          )
+        }
+        // Background task status line
+        if (data.emoji) {
+          return (
+            <div key={item.id} className="flex justify-center my-1.5">
+              <span className="text-xs text-slate-500">
+                {data.emoji} {data.name}{data.summary ? ` — ${data.summary}` : ''}
+              </span>
             </div>
           )
         }
@@ -380,7 +374,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
       default:
         return null
     }
-  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages, onElicitationResponse, onStopTask])
+  }, [onPermissionDecision, onSend, onSelectArtifact, onFork, activeSessionId, sessionRunning, subagentMessages, onGetSubagentMessages, onElicitationResponse])
 
   const renderedHistory = useMemo(() => history.map(renderChatItem), [history, renderChatItem])
   const renderedMessages = useMemo(() => messages.map(renderChatItem), [messages, renderChatItem])

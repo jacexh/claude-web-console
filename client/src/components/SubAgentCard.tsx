@@ -17,20 +17,9 @@ interface SubAgentCardProps {
   onExpand: (sessionId: string, agentId: string) => void
   onSelectArtifact?: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
   onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('../types').PermissionSuggestion[]) => void
-  taskId?: string
-  taskStatus?: 'running' | 'completed' | 'failed' | 'stopped'
-  taskProgress?: {
-    tokens: number
-    toolUses: number
-    durationMs: number
-    lastToolName?: string
-    description?: string
-  }
-  isBackground?: boolean
-  onStopTask?: (sessionId: string, taskId: string) => void
 }
 
-export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision, taskId, taskStatus, taskProgress, isBackground, onStopTask }: SubAgentCardProps) {
+export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision }: SubAgentCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Auto-expand when subagent starts streaming messages
@@ -39,8 +28,6 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
       setExpanded(true)
     }
   }, [status, subagentMessages])
-
-
 
   const handleToggle = () => {
     if (!expanded && !subagentMessages) {
@@ -111,51 +98,6 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
     }
   }
 
-  // Background tasks: simplified layout (no expand, no internal messages)
-  if (isBackground) {
-    return (
-      <div className="ml-10 my-2 border border-[#d4c5f9] bg-[#f5f0ff] rounded-lg overflow-hidden shadow-soft">
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            {agentName && <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-[#e4d8f9] text-violet-700">{agentName}</span>}
-            <span className="text-sm font-medium text-violet-800 truncate max-w-xs">{description}</span>
-          </div>
-          <div className="flex items-center">
-            {taskId && taskStatus === 'running' && onStopTask && (
-              <button
-                aria-label="Stop task"
-                className="text-xs px-2.5 py-1 rounded-md border border-red-300 bg-red-50 text-red-700 font-medium shadow-sm hover:bg-red-100 hover:border-red-400 active:bg-red-200 transition-colors cursor-pointer mr-2"
-                onClick={(e) => { e.stopPropagation(); onStopTask(sessionId, taskId) }}
-              >
-                Stop
-              </button>
-            )}
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColors[status]}`}>
-              {status}
-            </span>
-          </div>
-        </div>
-        {/* Progress */}
-        {taskProgress && (
-          <div className="px-4 py-2 text-xs text-slate-600 flex items-center gap-3 border-t border-[#d4c5f9]/30">
-            <span>{(taskProgress.tokens ?? 0).toLocaleString()} tokens</span>
-            <span>{taskProgress.toolUses ?? 0} tools</span>
-            <span>{Math.round((taskProgress.durationMs ?? 0) / 1000)}s</span>
-            {taskProgress.lastToolName && (
-              <span className="font-mono text-violet-600">{taskProgress.lastToolName}</span>
-            )}
-          </div>
-        )}
-        {/* Summary result (shown directly, no expand needed) */}
-        {resultText && (
-          <div className="px-4 py-2 text-xs text-slate-600 border-t border-[#d4c5f9]/30">{resultText}</div>
-        )}
-      </div>
-    )
-  }
-
-  // Foreground agents: expandable with internal messages
   return (
     <div className="ml-10 my-2 border border-[#d4c5f9] bg-[#f5f0ff] rounded-lg overflow-hidden shadow-soft">
       {/* Header */}

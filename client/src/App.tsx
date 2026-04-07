@@ -74,7 +74,8 @@ export function App() {
   // Buffer permission_requests that arrive before their tool_use sdk_message
   const pendingPermissionsRef = useRef<Map<string, { permission: Record<string, unknown>; sessionId: string }>>(new Map())
   // Map taskId → { sessionId, toolUseId } for fast lookup on progress/notification
-  const taskMapRef = useRef<Map<string, { sessionId: string; toolUseId: string }>>(new Map())
+  const taskMapRef = useRef<Map<string, { sessionId: string; toolUseId: string; description: string }>>(new Map())
+  const backgroundToolUseIdsRef = useRef<Set<string>>(new Set())
 
   const updateSessionStatus = useCallback((sessionId: string, patch: Partial<SessionStatusInfo>) => {
     setStatusBySession((prev) => ({
@@ -112,53 +113,54 @@ export function App() {
             }
           }
 
-          // Handle background task messages
+          // Handle background task messages — render as status lines in chat
           if (sdkType === 'system' && msg.subtype === 'task_started') {
             const data = msg as unknown as TaskStartedData & { subtype: string; type: string }
             if (data.tool_use_id) {
-              taskMapRef.current.set(data.task_id, { sessionId, toolUseId: data.tool_use_id })
-              store.updateChatItem(sessionId, data.tool_use_id, {
-                taskId: data.task_id,
-                taskStatus: 'running',
-              })
+              taskMapRef.current.set(data.task_id, { sessionId, toolUseId: data.tool_use_id, description: data.description })
             }
+            // Look up agent name from the original tool_use ChatItem
+            const items = store.messagesBySession[sessionId] ?? []
+            const toolItem = data.tool_use_id ? items.find(it => it.id === data.tool_use_id) : undefined
+            const agentDesc = toolItem?.toolInput?.description as string | undefined
+            const name = agentDesc ?? data.description
+            store.addChatItem(sessionId, {
+              id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+              type: 'system',
+              content: { emoji: '🚀', name, summary: 'started' },
+              timestamp: Date.now(),
+            })
             break
           }
 
           if (sdkType === 'system' && msg.subtype === 'task_progress') {
             const data = msg as unknown as TaskProgressData & { subtype: string; type: string }
             const entry = taskMapRef.current.get(data.task_id)
-            if (entry) {
-              store.updateChatItem(entry.sessionId, entry.toolUseId, {
-                taskProgress: {
-                  tokens: data.usage.total_tokens,
-                  toolUses: data.usage.tool_uses,
-                  durationMs: data.usage.duration_ms,
-                  lastToolName: data.last_tool_name,
-                  description: data.description,
-                },
-              })
-            }
+            const name = entry?.description ?? data.description
+            const tokens = (data.usage.total_tokens ?? 0).toLocaleString()
+            const tools = data.usage.tool_uses ?? 0
+            const secs = Math.round((data.usage.duration_ms ?? 0) / 1000)
+            store.addChatItem(sessionId, {
+              id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+              type: 'system',
+              content: { emoji: '⏳', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
+              timestamp: Date.now(),
+            })
             break
           }
 
           if (sdkType === 'system' && msg.subtype === 'task_notification') {
             const data = msg as unknown as TaskNotificationData & { subtype: string; type: string }
             const entry = taskMapRef.current.get(data.task_id)
-            if (entry) {
-              store.updateChatItem(entry.sessionId, entry.toolUseId, {
-                taskStatus: data.status,
-                content: { result: data.summary },
-                ...(data.usage ? {
-                  taskProgress: {
-                    tokens: data.usage.total_tokens,
-                    toolUses: data.usage.tool_uses,
-                    durationMs: data.usage.duration_ms,
-                  },
-                } : {}),
-              })
-              taskMapRef.current.delete(data.task_id)
-            }
+            const name = entry?.description ?? data.task_id
+            const isFailed = data.status === 'failed' || data.status === 'stopped'
+            store.addChatItem(sessionId, {
+              id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+              type: 'system',
+              content: { emoji: isFailed ? '❌' : '✅', name, summary: data.summary },
+              timestamp: Date.now(),
+            })
+            if (entry) taskMapRef.current.delete(data.task_id)
             break
           }
 
@@ -262,6 +264,12 @@ export function App() {
                 const toolName = block.name as string
                 const toolId = block.id as string
                 const toolInput = block.input as Record<string, unknown>
+                // Skip background Agent tool_use — rendered as status lines instead
+                if (toolName === 'Agent' && toolInput.run_in_background) {
+                  // Track it so we can suppress its tool_result later
+                  backgroundToolUseIdsRef.current.add(toolId)
+                  continue
+                }
                 // Check if a permission_request arrived before this tool_use
                 const pendingPerm = pendingPermissionsRef.current.get(toolId)
                 if (pendingPerm) pendingPermissionsRef.current.delete(toolId)
@@ -293,6 +301,10 @@ export function App() {
                 if (/<system-reminder>|<EXTREMELY_IMPORTANT>|<skill-name>/.test(text)) {
                   continue
                 }
+                // Skip SDK-injected task notifications — we render from system events
+                if (/<task-notification>/.test(text)) {
+                  continue
+                }
                 const item: ChatItem = {
                   id: uuid(),
                   type: 'user',
@@ -301,8 +313,14 @@ export function App() {
                 }
                 store.addChatItem(sessionId, item)
               } else if (block.type === 'tool_result') {
+                const toolUseId = block.tool_use_id as string
+                // Skip tool_result for background Agent tool_use
+                if (backgroundToolUseIdsRef.current.has(toolUseId)) {
+                  backgroundToolUseIdsRef.current.delete(toolUseId)
+                  continue
+                }
                 const cleaned = cleanToolResult(block.content)
-                store.updateChatItem(sessionId, block.tool_use_id as string, {
+                store.updateChatItem(sessionId, toolUseId, {
                   content: { result: cleaned.result },
                   ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}),
                 })
@@ -395,6 +413,7 @@ export function App() {
           const items: ChatItem[] = []
           // Map tool_use IDs to items so we can attach tool_results later
           const toolUseMap = new Map<string, ChatItem>()
+          const historyBgToolUseIds = new Set<string>()
           // Subagent messages grouped by parent_tool_use_id
           const subagentItems = new Map<string, ChatItem[]>()
           const subagentToolUseMap = new Map<string, ChatItem>()
@@ -429,6 +448,19 @@ export function App() {
                   const toolName = block.name as string
                   const toolId = block.id as string
                   const toolInput = block.input as Record<string, unknown>
+                  // Background Agent tool_use → status line instead of SubAgentCard
+                  if (toolName === 'Agent' && toolInput.run_in_background && !parentId) {
+                    const agentDesc = toolInput.description as string | undefined
+                    const name = agentDesc ?? (typeof toolInput.prompt === 'string' ? (toolInput.prompt as string).split('\n')[0] : 'Agent')
+                    items.push({
+                      id: toolId,
+                      type: 'system',
+                      content: { emoji: '🚀', name, summary: 'started' },
+                      timestamp: 0,
+                    })
+                    historyBgToolUseIds.add(toolId)
+                    continue
+                  }
                   const item: ChatItem = {
                     id: toolId,
                     type: 'tool_use',
@@ -461,32 +493,22 @@ export function App() {
             } else if (msgType === 'user') {
               const content = message.content
               if (!parentId && typeof content === 'string') {
-                // Parse task notifications: extract data, render as badge, update SubAgentCard
+                // Parse task notifications → status line
                 const taskMatch = content.match(/<task-notification>([\s\S]*?)<\/task-notification>/)
                 if (taskMatch) {
                   const block = taskMatch[1]
-                  const nTaskId = block.match(/<task-id>(.*?)<\/task-id>/)?.[1] ?? ''
                   const nStatus = block.match(/<status>(.*?)<\/status>/)?.[1] ?? ''
                   const nSummary = block.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
-                  const nToolUseId = block.match(/<tool-use-id>(.*?)<\/tool-use-id>/)?.[1]
-                  // Update the Agent tool_use ChatItem
-                  if (nToolUseId) {
-                    const toolItem = toolUseMap.get(nToolUseId) ?? subagentToolUseMap.get(nToolUseId)
-                    if (toolItem) {
-                      toolItem.taskId = nTaskId
-                      toolItem.taskStatus = nStatus as ChatItem['taskStatus']
-                      if (nSummary) {
-                        const existing = typeof toolItem.content === 'object' && toolItem.content !== null
-                          ? (toolItem.content as Record<string, unknown>) : {}
-                        toolItem.content = { ...existing, result: nSummary }
-                      }
-                    }
-                  }
-                  // Add notification badge
+                  const isFailed = nStatus === 'failed' || nStatus === 'stopped'
+                  // Try to find the agent name from a preceding started status line
+                  const startedLine = [...items].reverse().find(it =>
+                    it.type === 'system' && (it.content as Record<string, unknown>)?.emoji === '🚀'
+                  )
+                  const name = startedLine ? (startedLine.content as Record<string, unknown>).name as string : 'Agent'
                   items.push({
                     id: uuid(),
                     type: 'system',
-                    content: { taskId: nTaskId, status: nStatus, summary: nSummary },
+                    content: { emoji: isFailed ? '❌' : '✅', name, summary: nSummary },
                     timestamp: 0,
                   })
                 } else {
@@ -501,30 +523,21 @@ export function App() {
                 for (const block of content as Array<Record<string, unknown>>) {
                   if (block.type === 'text' && !parentId) {
                     const blockText = block.text as string
-                    // Parse task notifications from text blocks
+                    // Parse task notifications from text blocks → status line
                     const taskMatch = blockText.match(/<task-notification>([\s\S]*?)<\/task-notification>/)
                     if (taskMatch) {
                       const tb = taskMatch[1]
-                      const nTaskId = tb.match(/<task-id>(.*?)<\/task-id>/)?.[1] ?? ''
                       const nStatus = tb.match(/<status>(.*?)<\/status>/)?.[1] ?? ''
                       const nSummary = tb.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
-                      const nToolUseId = tb.match(/<tool-use-id>(.*?)<\/tool-use-id>/)?.[1]
-                      if (nToolUseId) {
-                        const toolItem = toolUseMap.get(nToolUseId) ?? subagentToolUseMap.get(nToolUseId)
-                        if (toolItem) {
-                          toolItem.taskId = nTaskId
-                          toolItem.taskStatus = nStatus as ChatItem['taskStatus']
-                          if (nSummary) {
-                            const existing = typeof toolItem.content === 'object' && toolItem.content !== null
-                              ? (toolItem.content as Record<string, unknown>) : {}
-                            toolItem.content = { ...existing, result: nSummary }
-                          }
-                        }
-                      }
+                      const isFailed = nStatus === 'failed' || nStatus === 'stopped'
+                      const startedLine = [...items].reverse().find(it =>
+                        it.type === 'system' && (it.content as Record<string, unknown>)?.emoji === '🚀'
+                      )
+                      const name = startedLine ? (startedLine.content as Record<string, unknown>).name as string : 'Agent'
                       items.push({
                         id: uuid(),
                         type: 'system',
-                        content: { taskId: nTaskId, status: nStatus, summary: nSummary },
+                        content: { emoji: isFailed ? '❌' : '✅', name, summary: nSummary },
                         timestamp: 0,
                       })
                       continue
@@ -537,6 +550,8 @@ export function App() {
                     })
                   } else if (block.type === 'tool_result') {
                     const toolUseId = block.tool_use_id as string
+                    // Skip tool_result for background Agent
+                    if (historyBgToolUseIds.has(toolUseId)) continue
                     const toolItem = subagentToolUseMap.get(toolUseId) ?? toolUseMap.get(toolUseId)
                     if (toolItem) {
                       const existing = toolItem.content as Record<string, unknown>
@@ -544,64 +559,6 @@ export function App() {
                       toolItem.content = { ...existing, result: cleaned.result }
                       if (cleaned.systemTags.length > 0) toolItem.systemTags = cleaned.systemTags
                     }
-                  }
-                }
-              }
-            }
-          }
-
-          // Second pass: process task events (task_started / task_notification)
-          // to populate taskId, taskStatus, and overwrite launch text with summary
-          const toolUseById = new Map<string, ChatItem>()
-          for (const it of items) {
-            if (it.type === 'tool_use') toolUseById.set(it.id, it)
-          }
-          for (const [, subs] of subagentItems) {
-            for (const it of subs) {
-              if (it.type === 'tool_use') toolUseById.set(it.id, it)
-            }
-          }
-          for (const msg of messages) {
-            const msgType = msg.type as string
-            if (msgType !== 'system') continue
-            const subtype = (msg as Record<string, unknown>).subtype as string | undefined
-            if (subtype === 'task_started') {
-              const toolUseId = (msg as Record<string, unknown>).tool_use_id as string | undefined
-              const taskId = (msg as Record<string, unknown>).task_id as string
-              if (toolUseId) {
-                const item = toolUseById.get(toolUseId)
-                if (item) {
-                  item.taskId = taskId
-                  item.taskStatus = 'running'
-                }
-              }
-            } else if (subtype === 'task_notification') {
-              const toolUseId = (msg as Record<string, unknown>).tool_use_id as string | undefined
-              const taskId = (msg as Record<string, unknown>).task_id as string
-              const status = (msg as Record<string, unknown>).status as string
-              const summary = (msg as Record<string, unknown>).summary as string
-              const usage = (msg as Record<string, unknown>).usage as { total_tokens: number; tool_uses: number; duration_ms: number } | undefined
-              // Find item by tool_use_id or taskId
-              let item: ChatItem | undefined
-              if (toolUseId) item = toolUseById.get(toolUseId)
-              if (!item) {
-                for (const it of toolUseById.values()) {
-                  if (it.taskId === taskId) { item = it; break }
-                }
-              }
-              if (item) {
-                item.taskStatus = status as ChatItem['taskStatus']
-                if (summary) {
-                  const existing = typeof item.content === 'object' && item.content !== null
-                    ? (item.content as Record<string, unknown>)
-                    : {}
-                  item.content = { ...existing, result: summary }
-                }
-                if (usage) {
-                  item.taskProgress = {
-                    tokens: usage.total_tokens,
-                    toolUses: usage.tool_uses,
-                    durationMs: usage.duration_ms,
                   }
                 }
               }
