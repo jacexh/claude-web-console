@@ -180,7 +180,7 @@ function extractText(raw: unknown): string {
   } else {
     text = JSON.stringify(raw, null, 2)
   }
-  return text
+  return stripSystemTags(text)
 }
 
 /** Strip line number prefixes from Read tool output (e.g. "  1\tcontent" → "content") */
@@ -189,14 +189,7 @@ function stripLineNumbers(text: string): string {
   // Check if most lines match the pattern: optional spaces + number + tab
   const numbered = lines.filter((l) => /^\s*\d+\t/.test(l))
   if (numbered.length > lines.length * 0.5) {
-    return lines.map((l) => {
-      // Standard numbered line: "  N\tcontent"
-      const stripped = l.replace(/^\s*\d+\t/, "")
-      if (stripped !== l) return stripped
-      // Empty numbered line where tab was stripped by SDK: "  N" or "N"
-      if (/^\s*\d+\s*$/.test(l)) return ""
-      return l
-    }).join("\n")
+    return lines.map((l) => l.replace(/^\s*\d+\t/, "")).join("\n")
   }
   return text
 }
@@ -305,7 +298,7 @@ function renderContent(artifact: Artifact) {
         {result != null && (
           <div>
             <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-[0.05em] mb-1.5">output</div>
-            <SmartContent content={stripSystemTags(extractText(result))} />
+            <SmartContent content={extractText(result)} />
           </div>
         )}
       </div>
@@ -315,8 +308,8 @@ function renderContent(artifact: Artifact) {
   // Read / Glob / Grep / other tools
   const rawText = result != null ? extractText(result) : null
   const resultStr = rawText != null && toolName === "Read"
-    ? stripSystemTags(stripLineNumbers(rawText))
-    : rawText != null ? stripSystemTags(rawText) : rawText
+    ? stripLineNumbers(rawText)
+    : rawText
 
   return (
     <div className="space-y-3">
