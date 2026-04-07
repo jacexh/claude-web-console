@@ -1,5 +1,6 @@
 import { memo, useState } from "react"
 import { cn } from "@/lib/utils"
+import { stripSystemTags } from "@/lib/strip-system-tags"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   FileText,
@@ -284,7 +285,10 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
                     {Object.keys(input).length > 0 && <hr className="my-2 border-t border-current/10" />}
                     <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-muted-foreground">
                       {typeof result === "string"
-                        ? (result.length > 4000 ? result.slice(0, 4000) + "\n… (truncated)" : result)
+                        ? (() => {
+                            const cleaned = stripSystemTags(result)
+                            return cleaned.length > 4000 ? cleaned.slice(0, 4000) + "\n… (truncated)" : cleaned
+                          })()
                         : JSON.stringify(result, null, 2)}
                     </pre>
                   </>
