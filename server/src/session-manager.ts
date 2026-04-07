@@ -546,12 +546,25 @@ export class SessionManager {
         this.runningSessionIds.delete(sessionId)
         this.streamingSessionIds.delete(sessionId)
         this.activeQueries.delete(sessionId)
+        // Clean up stale session object if stream ended unexpectedly (not via explicit closeSession).
+        // Without this, the session stays in this.sessions (appears "already running")
+        // while runningSessionIds shows it as idle — making resume impossible.
+        if (this.sessions.has(sessionId) && !this.closedSessionIds.has(sessionId)) {
+          const s = this.sessions.get(sessionId)
+          this.sessions.delete(sessionId)
+          try { s?.close() } catch { /* already closed */ }
+        }
         this.broadcast(sessionId, (l) => l.onEnd(sessionId))
       } catch {
         // Session never initialized — try with our tracked id
         this.runningSessionIds.delete(currentSessionId)
         this.streamingSessionIds.delete(currentSessionId)
         this.activeQueries.delete(currentSessionId)
+        if (this.sessions.has(currentSessionId) && !this.closedSessionIds.has(currentSessionId)) {
+          const s = this.sessions.get(currentSessionId)
+          this.sessions.delete(currentSessionId)
+          try { s?.close() } catch { /* already closed */ }
+        }
         this.broadcast(currentSessionId, (l) => l.onEnd(currentSessionId))
       }
     }
@@ -888,6 +901,15 @@ export class SessionManager {
     const cwd = this.sessionCwds.get(sessionId)
     const result = await sdkForkSession(sessionId, { upToMessageId, dir: cwd })
     const newSessionId = result.sessionId
+
+    // Copy metadata from parent session so the fork can be resumed
+    if (cwd) this.sessionCwds.set(newSessionId, cwd)
+    const options = this.sessionCreationOptions.get(sessionId)
+    if (options) {
+      this.sessionCreationOptions.set(newSessionId, options)
+      saveSessionOptions(newSessionId, options)
+    }
+
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
       type: 'session_forked', sessionId, newSessionId,
     } as unknown as SDKMessage))

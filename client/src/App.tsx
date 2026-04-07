@@ -548,6 +548,8 @@ export function App() {
           store.setActive(newSessionId)
           send({ type: 'switch_session', sessionId: newSessionId })
           send({ type: 'list_commands', sessionId: newSessionId })
+          // Auto-resume the forked session so the user can immediately start typing
+          send({ type: 'resume_session', sessionId: newSessionId })
           break
         }
 
