@@ -11,7 +11,7 @@ import {
   type SDKMessage,
   type PermissionResult,
 } from '@anthropic-ai/claude-agent-sdk'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { FastifyBaseLogger } from 'fastify'
@@ -57,16 +57,16 @@ function cleanEnv(cwd?: string): Record<string, string | undefined> {
 }
 
 const CLAUDE_EXECUTABLE = process.env.CLAUDE_PATH ?? 'claude'
+const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude')
 
 // Read ~/.claude/settings.json and resolve enabled plugins to local --plugin-dir paths
 function getPluginDirArgs(): string[] {
-  const home = homedir()
   try {
-    const settings = JSON.parse(readFileSync(join(home, '.claude', 'settings.json'), 'utf-8'))
+    const settings = JSON.parse(readFileSync(join(CLAUDE_DIR, 'settings.json'), 'utf-8'))
     const enabled = settings.enabledPlugins as Record<string, boolean> | undefined
     if (!enabled) return []
     const args: string[] = []
-    const pluginsBase = join(home, '.claude', 'plugins')
+    const pluginsBase = join(CLAUDE_DIR, 'plugins')
     for (const [key, value] of Object.entries(enabled)) {
       if (!value) continue
       // key format: "plugin-name@marketplace-id"
@@ -103,7 +103,7 @@ function getPluginDirArgs(): string[] {
 
 /** Check if a session is being used by an external process (e.g. CLI) */
 function isSessionLockedExternally(sessionId: string): boolean {
-  const sessionsDir = join(homedir(), '.claude', 'sessions')
+  const sessionsDir = join(CLAUDE_DIR, 'sessions')
   try {
     const files = readdirSync(sessionsDir).filter((f) => f.endsWith('.json'))
     for (const file of files) {
@@ -117,6 +117,28 @@ function isSessionLockedExternally(sessionId: string): boolean {
     }
   } catch { /* sessions dir doesn't exist */ }
   return false
+}
+
+const optionsDir = join(CLAUDE_DIR, 'claude-web-console')
+
+type SessionCreationOptions = {
+  model?: string
+  permissionMode?: string
+  executableArgs?: string[]
+  env?: Record<string, string>
+}
+
+function saveSessionOptions(sessionId: string, opts: SessionCreationOptions): void {
+  try {
+    mkdirSync(optionsDir, { recursive: true })
+    writeFileSync(join(optionsDir, `${sessionId}.options.json`), JSON.stringify(opts))
+  } catch { /* best-effort */ }
+}
+
+function loadSessionOptions(sessionId: string): SessionCreationOptions | undefined {
+  try {
+    return JSON.parse(readFileSync(join(optionsDir, `${sessionId}.options.json`), 'utf-8'))
+  } catch { return undefined }
 }
 
 export class SessionManager {
@@ -133,12 +155,7 @@ export class SessionManager {
   // Track cwd for each session so we can resume in the correct project
   private sessionCwds = new Map<string, string>()
   /** User-supplied creation options that must survive resume cycles */
-  private sessionCreationOptions = new Map<string, {
-    model?: string
-    permissionMode?: string
-    executableArgs?: string[]
-    env?: Record<string, string>
-  }>()
+  private sessionCreationOptions = new Map<string, SessionCreationOptions>()
   // Cache commands extracted from SDK init messages
   private sessionCommands = new Map<string, { name: string; description: string }[]>()
   // Active stream (Query) references for control requests like setModel
@@ -491,7 +508,7 @@ export class SessionManager {
             const c = this.sessionCwds.get(tempId)
             if (c) { this.sessionCwds.delete(tempId); this.sessionCwds.set(sessionId, c) }
             const opts = this.sessionCreationOptions.get(tempId)
-            if (opts) { this.sessionCreationOptions.delete(tempId); this.sessionCreationOptions.set(sessionId, opts) }
+            if (opts) { this.sessionCreationOptions.delete(tempId); this.sessionCreationOptions.set(sessionId, opts); saveSessionOptions(sessionId, opts) }
             const listeners = this.sessionListeners.get(tempId)
             if (listeners) { this.sessionListeners.delete(tempId); this.sessionListeners.set(sessionId, listeners) }
             this.streamingSessionIds.delete(tempId)
@@ -746,9 +763,13 @@ export class SessionManager {
     }
     this.closedSessionIds.delete(sessionId)
 
-    // Use the cached cwd and creation options so claude spawns with the correct config
+    // Use the cached cwd and creation options so claude spawns with the correct config.
+    // Fall back to disk if the in-memory cache was lost (e.g. server restart).
     const cwd = this.sessionCwds.get(sessionId)
-    const cached = this.sessionCreationOptions.get(sessionId)
+    const cached = this.sessionCreationOptions.get(sessionId) ?? loadSessionOptions(sessionId)
+    if (cached && !this.sessionCreationOptions.has(sessionId)) {
+      this.sessionCreationOptions.set(sessionId, cached)
+    }
     const resumeSessionIdRef = { current: sessionId }
     const pluginArgs = getPluginDirArgs()
     const userArgs = cached?.executableArgs ?? []
