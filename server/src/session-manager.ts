@@ -6,6 +6,7 @@ import {
   getSubagentMessages as sdkGetSubagentMessages,
   renameSession as sdkRenameSession,
   forkSession as sdkForkSession,
+  getSessionInfo,
   type SDKSession,
   type SDKSessionOptions,
   type SDKMessage,
@@ -894,7 +895,7 @@ export class SessionManager {
     } as unknown as SDKMessage))
   }
 
-  async forkSession(sessionId: string, upToMessageId: string): Promise<string> {
+  async forkSession(sessionId: string, upToMessageId: string): Promise<{ sessionId: string; title: string }> {
     if (!upToMessageId) {
       throw new Error('upToMessageId is required')
     }
@@ -910,9 +911,13 @@ export class SessionManager {
       saveSessionOptions(newSessionId, options)
     }
 
+    // Read the title that the SDK auto-generated for the forked session
+    const info = await getSessionInfo(newSessionId, { dir: cwd })
+    const title = info?.summary || 'Forked session'
+
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
-      type: 'session_forked', sessionId, newSessionId,
+      type: 'session_forked', sessionId, newSessionId, title,
     } as unknown as SDKMessage))
-    return newSessionId
+    return { sessionId: newSessionId, title }
   }
 }

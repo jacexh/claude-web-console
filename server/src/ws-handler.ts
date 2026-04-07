@@ -78,6 +78,7 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
               type: 'session_forked',
               sessionId: msg.sessionId as string,
               newSessionId: msg.newSessionId as string,
+              title: msg.title as string,
             })
             return
           }
@@ -278,6 +279,11 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
 
           case 'rename_session': {
             await sessionManager.renameSession(msg.sessionId, msg.title)
+            // Always confirm back to the requesting client. The broadcast inside
+            // renameSession only reaches listeners subscribed to this sessionId,
+            // which may not include the current client (e.g. renaming a non-active
+            // session from the sidebar).
+            send({ type: 'session_renamed', sessionId: msg.sessionId, title: msg.title })
             break
           }
 

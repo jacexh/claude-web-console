@@ -250,6 +250,7 @@ export interface SessionForkedMessage {
   type: 'session_forked'
   sessionId: string
   newSessionId: string
+  title: string
 }
 
 export interface EffortLevelChangedMessage {

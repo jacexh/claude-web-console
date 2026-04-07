@@ -544,7 +544,7 @@ export function App() {
 
         case 'session_forked': {
           const newSessionId = data.newSessionId as string
-          store.addSession(newSessionId, 'idle')
+          store.addSession(newSessionId, 'idle', undefined, data.title as string)
           store.setActive(newSessionId)
           send({ type: 'switch_session', sessionId: newSessionId })
           send({ type: 'list_commands', sessionId: newSessionId })
