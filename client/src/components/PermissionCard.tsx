@@ -44,7 +44,7 @@ export function PermissionCard({ toolUseId, toolName, input, onDecision }: Permi
       <div className="bg-[#fcf1ce] border border-[#f3e4b0] rounded-lg p-4 flex items-center justify-between shadow-soft">
         <div className="flex items-start gap-3 min-w-0">
           <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-900 font-medium">
+          <p className="text-base text-yellow-900 font-medium">
             Permission request to allow access to{" "}
             <span className="font-mono">{toolName}</span>.
           </p>
