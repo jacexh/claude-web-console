@@ -334,8 +334,14 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         if (data.emoji) {
           return (
             <div key={item.id} className="flex justify-center my-1.5">
-              <span className="text-xs text-slate-500">
-                {data.emoji} {data.name}{data.summary ? ` — ${data.summary}` : ''}
+              <span className={`inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border ${
+                data.emoji === '❌' ? 'bg-red-50 border-red-200 text-red-700'
+                : data.emoji === '✅' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-slate-50 border-slate-200 text-slate-600'
+              }`}>
+                <span>{data.emoji}</span>
+                <span className="font-medium">{data.name}</span>
+                {data.summary && data.summary !== 'started' && <span className="text-inherit/70">— {data.summary}</span>}
               </span>
             </div>
           )
