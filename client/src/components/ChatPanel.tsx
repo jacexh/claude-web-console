@@ -272,7 +272,16 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           const hasResult = data.result != null
           const isError = Array.isArray(data.result) &&
             (data.result as Array<{ type: string; is_error?: boolean }>).some(b => b.is_error === true)
-          const status: 'running' | 'done' | 'error' = isError ? 'error' : hasResult ? 'done' : sessionRunning ? 'running' : 'done'
+          // For background tasks, taskStatus takes precedence over the derived status
+          const taskStatus = item.taskStatus
+          const derivedStatus: 'running' | 'done' | 'error' = isError ? 'error' : hasResult ? 'done' : sessionRunning ? 'running' : 'done'
+          const status: 'running' | 'done' | 'error' = taskStatus === 'failed' || taskStatus === 'stopped'
+            ? 'error'
+            : taskStatus === 'completed'
+              ? 'done'
+              : taskStatus === 'running'
+                ? 'running'
+                : derivedStatus
           const resultContent = data.result
           let resultText: string | undefined
           if (resultContent != null) {
