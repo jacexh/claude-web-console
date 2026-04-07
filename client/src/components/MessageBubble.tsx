@@ -4,6 +4,7 @@ import { stripSystemTags } from "@/lib/strip-system-tags"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkFrontmatter from "remark-frontmatter"
+import rehypeRaw from "rehype-raw"
 import { CodeBlock } from "./CodeBlock"
 import { MermaidDiagram } from "./MermaidDiagram"
 
@@ -187,6 +188,7 @@ export const MessageBubble = memo(function MessageBubble({ role, content }: Mess
         <div className="prose-custom text-[15px] leading-relaxed text-slate-700">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkFrontmatter]}
+            rehypePlugins={[rehypeRaw]}
             components={{
               code({ className, children, ...props }) {
                 const match = /language-(\w+)/.exec(className || "")

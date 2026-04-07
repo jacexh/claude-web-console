@@ -121,7 +121,7 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
           {taskId && taskStatus === 'running' && onStopTask && (
             <button
               aria-label="Stop task"
-              className="text-xs px-2 py-0.5 rounded bg-red-100 text-red-600 hover:bg-red-200 mr-2"
+              className="text-xs px-2.5 py-1 rounded-md border border-red-300 bg-red-50 text-red-700 font-medium shadow-sm hover:bg-red-100 hover:border-red-400 active:bg-red-200 transition-colors cursor-pointer mr-2"
               onClick={(e) => { e.stopPropagation(); onStopTask(sessionId, taskId) }}
             >
               Stop
