@@ -52,6 +52,19 @@ describe('SubAgentCard with background task', () => {
     expect(screen.queryByRole('button', { name: /stop/i })).toBeNull()
   })
 
+  it('renders progress safely when usage values are undefined', () => {
+    // SDK may send partial usage data — ensure no crash
+    render(
+      <SubAgentCard
+        {...baseProps}
+        taskProgress={{ tokens: undefined as unknown as number, toolUses: undefined as unknown as number, durationMs: undefined as unknown as number }}
+      />,
+    )
+    expect(screen.getByText(/0 tokens/)).toBeTruthy()
+    expect(screen.getByText(/0 tools/)).toBeTruthy()
+    expect(screen.getByText(/0s/)).toBeTruthy()
+  })
+
   it('maps taskStatus to SubAgentCard status correctly', () => {
     const { rerender } = render(
       <SubAgentCard {...baseProps} taskStatus="failed" status="error" />,

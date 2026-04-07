@@ -135,9 +135,9 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
       {/* Task progress */}
       {taskProgress && (
         <div className="px-4 py-2 text-xs text-slate-600 flex items-center gap-3 border-b border-[#d4c5f9]/30">
-          <span>{taskProgress.tokens.toLocaleString()} tokens</span>
-          <span>{taskProgress.toolUses} tools</span>
-          <span>{Math.round(taskProgress.durationMs / 1000)}s</span>
+          <span>{(taskProgress.tokens ?? 0).toLocaleString()} tokens</span>
+          <span>{taskProgress.toolUses ?? 0} tools</span>
+          <span>{Math.round((taskProgress.durationMs ?? 0) / 1000)}s</span>
           {taskProgress.lastToolName && (
             <span className="font-mono text-violet-600">{taskProgress.lastToolName}</span>
           )}
