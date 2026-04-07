@@ -66,6 +66,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isNearBottomRef = useRef(true)
+  const programmaticScrollRef = useRef(false)
   const [hasNewMessages, setHasNewMessages] = useState(false)
 
   const slashCmd = getSlashCommand(input)
@@ -80,6 +81,8 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
     const el = scrollAreaRef.current
     if (!el) return
     const handleScroll = () => {
+      // Ignore scroll events caused by programmatic scrollIntoView
+      if (programmaticScrollRef.current) return
       const { scrollTop, scrollHeight, clientHeight } = el
       const nearBottom = scrollHeight - scrollTop - clientHeight < 80
       isNearBottomRef.current = nearBottom
@@ -89,16 +92,25 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
     return () => el.removeEventListener('scroll', handleScroll)
   }, [])
 
+  // Auto-scroll only when a new message arrives and user is at the bottom.
+  // Use messages.length (not messages ref) so streaming updates to existing
+  // messages don't repeatedly trigger scroll checks.
   useEffect(() => {
     if (isNearBottomRef.current) {
+      programmaticScrollRef.current = true
       bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+      // Release the flag after the smooth scroll animation settles
+      setTimeout(() => { programmaticScrollRef.current = false }, 500)
     } else {
       setHasNewMessages(true)
     }
-  }, [messages, loading])
+  }, [messages.length, loading])
 
   const scrollToBottom = useCallback(() => {
+    isNearBottomRef.current = true
+    programmaticScrollRef.current = true
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
+    setTimeout(() => { programmaticScrollRef.current = false }, 500)
     setHasNewMessages(false)
   }, [])
 
