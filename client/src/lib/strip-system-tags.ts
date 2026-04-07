@@ -6,6 +6,7 @@
  */
 
 const SYSTEM_TAG_PATTERN = /<(system-reminder|EXTREMELY_IMPORTANT|skill-name|command-name|command-message|command-args)>([\s\S]*?)<\/\1>/g
+const RESULT_ID_PATTERN = /\[result-id: \w+\]\s*$/gm
 
 export interface StripResult {
   content: string
@@ -20,7 +21,7 @@ export function extractSystemTags(text: string): StripResult {
     const trimmed = (inner as string).trim()
     if (trimmed) systemTags.push(trimmed)
     return ""
-  })
+  }).replace(RESULT_ID_PATTERN, '')
   return { content, systemTags }
 }
 
