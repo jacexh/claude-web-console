@@ -39,6 +39,7 @@ interface ChatPanelProps {
   onElicitationResponse?: (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => void
   onOpenSettings?: () => void
   onInterrupt?: (sessionId: string) => void
+  onStopTask?: (sessionId: string, taskId: string) => void
 }
 
 /** Extract a /command being typed (after space or at start) */

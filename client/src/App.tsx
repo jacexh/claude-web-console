@@ -12,6 +12,7 @@ import type { FileEntry } from './components/FileMention'
 import { NewSessionDialog } from './components/NewSessionDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
 import { SettingsModal } from './components/SettingsModal'
+import type { TaskStartedData, TaskProgressData, TaskNotificationData } from './lib/task-message-handler'
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -72,6 +73,8 @@ export function App() {
   const pendingSessionCwdRef = useRef<string | null>(null)
   // Buffer permission_requests that arrive before their tool_use sdk_message
   const pendingPermissionsRef = useRef<Map<string, { permission: Record<string, unknown>; sessionId: string }>>(new Map())
+  // Map taskId → { sessionId, toolUseId } for fast lookup on progress/notification
+  const taskMapRef = useRef<Map<string, { sessionId: string; toolUseId: string }>>(new Map())
 
   const updateSessionStatus = useCallback((sessionId: string, patch: Partial<SessionStatusInfo>) => {
     setStatusBySession((prev) => ({
@@ -107,6 +110,56 @@ export function App() {
             if (msg.model) {
               updateSessionStatus(sessionId, { model: msg.model as string })
             }
+          }
+
+          // Handle background task messages
+          if (sdkType === 'system' && msg.subtype === 'task_started') {
+            const data = msg as unknown as TaskStartedData & { subtype: string; type: string }
+            if (data.tool_use_id) {
+              taskMapRef.current.set(data.task_id, { sessionId, toolUseId: data.tool_use_id })
+              store.updateChatItem(sessionId, data.tool_use_id, {
+                taskId: data.task_id,
+                taskStatus: 'running',
+              })
+            }
+            break
+          }
+
+          if (sdkType === 'system' && msg.subtype === 'task_progress') {
+            const data = msg as unknown as TaskProgressData & { subtype: string; type: string }
+            const entry = taskMapRef.current.get(data.task_id)
+            if (entry) {
+              store.updateChatItem(entry.sessionId, entry.toolUseId, {
+                taskProgress: {
+                  tokens: data.usage.total_tokens,
+                  toolUses: data.usage.tool_uses,
+                  durationMs: data.usage.duration_ms,
+                  lastToolName: data.last_tool_name,
+                  description: data.description,
+                },
+              })
+            }
+            break
+          }
+
+          if (sdkType === 'system' && msg.subtype === 'task_notification') {
+            const data = msg as unknown as TaskNotificationData & { subtype: string; type: string }
+            const entry = taskMapRef.current.get(data.task_id)
+            if (entry) {
+              store.updateChatItem(entry.sessionId, entry.toolUseId, {
+                taskStatus: data.status,
+                content: { result: data.summary },
+                ...(data.usage ? {
+                  taskProgress: {
+                    tokens: data.usage.total_tokens,
+                    toolUses: data.usage.tool_uses,
+                    durationMs: data.usage.duration_ms,
+                  },
+                } : {}),
+              })
+              taskMapRef.current.delete(data.task_id)
+            }
+            break
           }
 
           // Route subagent messages into SubAgentCard instead of main chat
@@ -843,6 +896,10 @@ export function App() {
     [send],
   )
 
+  const handleStopTask = useCallback((sessionId: string, taskId: string) => {
+    send({ type: 'stop_task', sessionId, taskId })
+  }, [send])
+
   const handleOpenSettings = useCallback(() => {
     if (!store.activeSessionId) return
     send({ type: 'get_session_settings', sessionId: store.activeSessionId })
@@ -951,6 +1008,7 @@ export function App() {
             onElicitationResponse={handleElicitationResponse}
             onOpenSettings={handleOpenSettings}
             onInterrupt={handleInterruptSession}
+            onStopTask={handleStopTask}
           />
         </div>
         {artifact && (
