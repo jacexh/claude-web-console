@@ -411,16 +411,24 @@ export function App() {
             }
           }
 
-          store.setHistoryItems(sessionId, items)
-          // Merge subagent history into subagentMessages state
-          if (subagentItems.size > 0) {
-            setSubagentMessages(prev => {
-              const updated = { ...prev }
-              for (const [parentId, msgs] of subagentItems) {
-                updated[`${sessionId}:${parentId}`] = msgs
-              }
-              return updated
-            })
+          // Skip history if this client already holds live messages for the session —
+          // the WS listener was active the whole time, so loading history would
+          // duplicate content and show a misleading "previous messages" divider.
+          // For other clients (User B) or after page refresh, messagesBySession
+          // is empty, so history loads normally.
+          const hasLiveMessages = (store.messagesBySession[sessionId] ?? []).length > 0
+          if (!hasLiveMessages) {
+            store.setHistoryItems(sessionId, items)
+            // Merge subagent history into subagentMessages state
+            if (subagentItems.size > 0) {
+              setSubagentMessages(prev => {
+                const updated = { ...prev }
+                for (const [parentId, msgs] of subagentItems) {
+                  updated[`${sessionId}:${parentId}`] = msgs
+                }
+                return updated
+              })
+            }
           }
           break
         }
