@@ -180,7 +180,7 @@ function extractText(raw: unknown): string {
   } else {
     text = JSON.stringify(raw, null, 2)
   }
-  return stripSystemTags(text)
+  return text
 }
 
 /** Strip line number prefixes from Read tool output (e.g. "  1\tcontent" → "content") */
@@ -298,7 +298,7 @@ function renderContent(artifact: Artifact) {
         {result != null && (
           <div>
             <div className="text-[11px] text-muted-foreground font-semibold uppercase tracking-[0.05em] mb-1.5">output</div>
-            <SmartContent content={extractText(result)} />
+            <SmartContent content={stripSystemTags(extractText(result))} />
           </div>
         )}
       </div>
@@ -308,8 +308,8 @@ function renderContent(artifact: Artifact) {
   // Read / Glob / Grep / other tools
   const rawText = result != null ? extractText(result) : null
   const resultStr = rawText != null && toolName === "Read"
-    ? stripLineNumbers(rawText)
-    : rawText
+    ? stripSystemTags(stripLineNumbers(rawText))
+    : rawText != null ? stripSystemTags(rawText) : rawText
 
   return (
     <div className="space-y-3">
