@@ -211,7 +211,7 @@ export function App() {
                   continue
                 }
                 // Skip system-injected prompts (skill content, system reminders, etc.)
-                if (/<system-reminder>|<EXTREMELY_IMPORTANT>|<skill-name>|<command-name>/.test(text) && text.length > 500) {
+                if (/<system-reminder>|<EXTREMELY_IMPORTANT>|<skill-name>/.test(text)) {
                   continue
                 }
                 const item: ChatItem = {

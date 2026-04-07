@@ -1,5 +1,6 @@
 import { memo, useState } from "react"
 import { Bot, TerminalSquare, Bell, CheckCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { stripSystemTags } from "@/lib/strip-system-tags"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import remarkFrontmatter from "remark-frontmatter"
@@ -42,8 +43,6 @@ function parseUserContent(raw: string): ParsedContent {
     command = cmdMatch[1]
     text = text
       .replace(/<command-name>.*?<\/command-name>/g, "")
-      .replace(/<command-message>.*?<\/command-message>/g, "")
-      .replace(/<command-args>.*?<\/command-args>/g, "")
       .trim()
   }
 
@@ -54,8 +53,11 @@ function parseUserContent(raw: string): ParsedContent {
     text = text.replace(/<local-command-stdout>[\s\S]*?<\/local-command-stdout>/g, "").trim()
   }
 
-  // Strip remaining system tags
+  // Strip SDK-injected system tags + orphaned command/local tags
+  text = stripSystemTags(text)
   text = text
+    .replace(/<command-message>[\s\S]*?<\/command-message>/g, "")
+    .replace(/<command-args>[\s\S]*?<\/command-args>/g, "")
     .replace(/<local-command-caveat>[\s\S]*?<\/local-command-caveat>/g, "")
     .replace(/<local-command-stdout>[\s\S]*?<\/local-command-stdout>/g, "")
     .replace(/<tool-use-id>[\s\S]*?<\/tool-use-id>/g, "")
