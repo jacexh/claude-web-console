@@ -119,6 +119,12 @@ export interface GetSessionSettingsMessage {
   sessionId: string
 }
 
+export interface StopTaskMessage {
+  type: 'stop_task'
+  sessionId: string
+  taskId: string
+}
+
 export type ClientMessage =
   | CreateSessionMessage
   | SendMessageMessage
@@ -139,6 +145,7 @@ export type ClientMessage =
   | GetSubagentMessagesMessage
   | ElicitationResponseMessage
   | GetSessionSettingsMessage
+  | StopTaskMessage
 
 // Server → Client
 export interface SessionInfo {
@@ -207,4 +214,14 @@ export interface ChatItem {
   resolved?: boolean
   resolvedAction?: string
   systemTags?: string[]
+  // Background task fields
+  taskId?: string
+  taskStatus?: 'running' | 'completed' | 'failed' | 'stopped'
+  taskProgress?: {
+    tokens: number
+    toolUses: number
+    durationMs: number
+    lastToolName?: string
+    description?: string
+  }
 }
