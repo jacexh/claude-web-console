@@ -4,15 +4,36 @@ import { registerHttpRoutes } from '../http-routes'
 
 function mockSessionManager(overrides: Record<string, unknown> = {}) {
   return {
-    createSession: vi.fn().mockResolvedValue('pending-123'),
+    createSession: vi.fn().mockResolvedValue('session-real-abc'),
     resumeSession: vi.fn().mockResolvedValue(undefined),
-    getSessionStatus: vi.fn().mockReturnValue('idle'),
+    getSessionStatus: vi.fn().mockReturnValue('running'),
     ...overrides,
   }
 }
 
 describe('POST /api/sessions', () => {
-  it('returns 201 with sessionId and idle status', async () => {
+  it('returns 201 with realId and running status when message provided', async () => {
+    const app = Fastify()
+    const sm = mockSessionManager()
+    registerHttpRoutes(app, sm as any)
+    await app.ready()
+
+    const resp = await app.inject({
+      method: 'POST',
+      url: '/api/sessions',
+      payload: { message: 'Hello', cwd: '/tmp/test' },
+    })
+
+    expect(resp.statusCode).toBe(201)
+    const body = resp.json()
+    expect(body.sessionId).toBe('session-real-abc')
+    expect(body.status).toBe('running')
+    expect(sm.createSession).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'Hello', cwd: '/tmp/test' }),
+    )
+  })
+
+  it('returns 400 when message is missing', async () => {
     const app = Fastify()
     const sm = mockSessionManager()
     registerHttpRoutes(app, sm as any)
@@ -24,14 +45,10 @@ describe('POST /api/sessions', () => {
       payload: { cwd: '/tmp/test' },
     })
 
-    expect(resp.statusCode).toBe(201)
-    const body = resp.json()
-    expect(body.sessionId).toBe('pending-123')
-    expect(body.status).toBe('idle')
-    expect(sm.createSession).toHaveBeenCalled()
+    expect(resp.statusCode).toBe(400)
   })
 
-  it('returns 201 with empty body', async () => {
+  it('returns 400 when body is empty', async () => {
     const app = Fastify()
     const sm = mockSessionManager()
     registerHttpRoutes(app, sm as any)
@@ -42,10 +59,7 @@ describe('POST /api/sessions', () => {
       url: '/api/sessions',
     })
 
-    expect(resp.statusCode).toBe(201)
-    const body = resp.json()
-    expect(body.sessionId).toBe('pending-123')
-    expect(body.status).toBe('idle')
+    expect(resp.statusCode).toBe(400)
   })
 
   it('returns 500 when createSession throws', async () => {
@@ -59,7 +73,7 @@ describe('POST /api/sessions', () => {
     const resp = await app.inject({
       method: 'POST',
       url: '/api/sessions',
-      payload: { cwd: '/tmp/test' },
+      payload: { message: 'Hello', cwd: '/tmp/test' },
     })
 
     expect(resp.statusCode).toBe(500)
@@ -69,7 +83,7 @@ describe('POST /api/sessions', () => {
 describe('POST /api/sessions/:id/resume', () => {
   it('returns 200 with sessionId and idle status', async () => {
     const app = Fastify()
-    const sm = mockSessionManager()
+    const sm = mockSessionManager({ getSessionStatus: vi.fn().mockReturnValue('idle') })
     registerHttpRoutes(app, sm as any)
     await app.ready()
 
