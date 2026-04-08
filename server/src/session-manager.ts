@@ -548,6 +548,10 @@ export class SessionManager {
         let sessionId: string
         try { sessionId = session.sessionId } catch { break }
         if (this.closedSessionIds.has(sessionId)) break
+        // Reset to idle if stream ended without a result (e.g. init-only stream)
+        if (this.sessionStatus.get(sessionId) === 'running') {
+          this.sessionStatus.set(sessionId, 'idle')
+        }
         // Wait briefly before re-entering stream() for next turn
         await new Promise((r) => setTimeout(r, 50))
       }
