@@ -135,6 +135,12 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             return // don't forward synthetic message
           }
 
+          // Forward session_status as top-level message (not wrapped in sdk_message)
+          if (msg.type === 'session_status') {
+            send({ type: 'session_status', sessionId: msg.sessionId as string, status: msg.status as string })
+            return
+          }
+
           send({ type: 'sdk_message', sessionId: sid, message })
         },
         onPermissionRequest(sid, toolUseId, toolName, input, meta) {

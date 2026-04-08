@@ -303,6 +303,12 @@ export interface SessionSettingsMessage {
   settings: Record<string, unknown>
 }
 
+export interface SessionStatusMessage {
+  type: 'session_status'
+  sessionId: string
+  status: string
+}
+
 export type ServerMessage =
   | SessionCreatedMessage
   | SessionListMessage
@@ -326,3 +332,4 @@ export type ServerMessage =
   | SubagentMessagesMessage
   | ElicitationRequestMessage
   | SessionSettingsMessage
+  | SessionStatusMessage
