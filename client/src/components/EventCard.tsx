@@ -240,6 +240,11 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
                   </button>
                 </div>
               </div>
+              {permission.description && (
+                <p data-testid="permission-description" className="text-xs text-yellow-800/70">
+                  {permission.description}
+                </p>
+              )}
               {editingRules && (
                 <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
                   {editedRules.map((rule, i) => (
