@@ -19,6 +19,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
 import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, isTurnMessage, type TurnState } from './turn-lifecycle.js'
 import { SessionStatusTracker } from './session-status.js'
+import { waitForSessionId } from './session-id-resolver.js'
 
 type PermissionResolver = {
   resolve: (approved: boolean, reason?: string, updatedPermissions?: import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[]) => void
@@ -158,7 +159,7 @@ export class SessionManager {
   private streamingSessionIds = new Set<string>()
   private sessionListeners = new Map<string, Set<SessionListener>>()
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private pendingRemaps = new Map<string, { sessionIdRef: { current: string }; resolve?: (sessionId: string) => void }>()
+  private pendingRemaps = new Map<string, { sessionIdRef: { current: string } }>()
   // Track cwd for each session so we can resume in the correct project
   private sessionCwds = new Map<string, string>()
   /** User-supplied creation options that must survive resume cycles */
@@ -384,20 +385,13 @@ export class SessionManager {
     })
 
     // Store tempId in pendingRemaps for remap inside consumeStream
-    const sessionIdReady = new Promise<string>((resolve) => {
-      this.pendingRemaps.set(tempId, { sessionIdRef, resolve })
-    })
+    this.pendingRemaps.set(tempId, { sessionIdRef })
 
     // For new sessions, start stream immediately — SDK may emit init messages
     this.startStreamConsumer(tempId, session)
 
-    // Wait for real sessionId (resolved when consumeStream processes first SDK message)
-    const timeoutMs = 10_000
-    const sessionId = await Promise.race([
-      sessionIdReady,
-      new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Session init timed out')), timeoutMs)),
-    ])
-
+    // Poll session.sessionId directly — don't depend on consumeStream remap timing
+    const sessionId = await waitForSessionId(session, 30_000)
     return sessionId
   }
 
@@ -537,8 +531,6 @@ export class SessionManager {
             if (prevStatus) this.sessionStatus.set(sessionId, prevStatus)
             const q = this.activeQueries.get(tempId)
             if (q) { this.activeQueries.delete(tempId); this.activeQueries.set(sessionId, q) }
-            // Resolve the sessionId promise before cleaning up the remap entry
-            if (remap.resolve) remap.resolve(sessionId)
             this.pendingRemaps.delete(tempId)
             // Update our tracking variable
             currentSessionId = sessionId
