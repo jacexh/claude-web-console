@@ -310,6 +310,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             toolName={data.name}
             input={data.input}
             result={data.result}
+            display={item.display}
             systemTags={item.systemTags}
             permission={data.permission}
             onPermissionDecision={onPermissionDecision}

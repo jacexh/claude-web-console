@@ -30,6 +30,7 @@ interface EventCardProps {
   toolName: string
   input: Record<string, unknown>
   result?: unknown
+  display?: 'summarized' | 'omitted'
   systemTags?: string[]
   permission?: PermissionState
   onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: PermissionSuggestion[]) => void
@@ -73,8 +74,9 @@ const toolMeta: Record<string, { icon: typeof FileText; headerBg: string; bodyBg
 
 const defaultMeta = { icon: Wrench, headerBg: "bg-slate-200", bodyBg: "bg-slate-50", borderColor: "border-slate-200", textColor: "text-slate-700" }
 
-export const EventCard = memo(function EventCard({ toolUseId, toolName, input, result, systemTags, permission, onPermissionDecision, defaultCollapsed = true, onSelect }: EventCardProps) {
+export const EventCard = memo(function EventCard({ toolUseId, toolName, input, result, display, systemTags, permission, onPermissionDecision, defaultCollapsed = true, onSelect }: EventCardProps) {
   const [open, setOpen] = useState(!defaultCollapsed)
+  const [displayExpanded, setDisplayExpanded] = useState(false)
   const [localDecided, setLocalDecided] = useState<'approved' | 'denied' | null>(null)
   const [editingRules, setEditingRules] = useState(false)
   const [editedRules, setEditedRules] = useState<{ toolName: string; ruleContent: string }[]>([])
@@ -288,11 +290,21 @@ export const EventCard = memo(function EventCard({ toolUseId, toolName, input, r
                 {result != null && (
                   <>
                     {Object.keys(input).length > 0 && <hr className="my-2 border-t border-current/10" />}
-                    <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-muted-foreground">
-                      {typeof result === "string"
-                        ? (result.length > 4000 ? result.slice(0, 4000) + "\n… (truncated)" : result)
-                        : JSON.stringify(result, null, 2)}
-                    </pre>
+                    {display && !displayExpanded ? (
+                      <button
+                        onClick={() => setDisplayExpanded(true)}
+                        className="text-xs text-muted-foreground/60 hover:text-muted-foreground/80 italic cursor-pointer select-none"
+                      >
+                        {display === 'omitted' ? 'Result omitted' : 'Result summarized'}
+                        <span className="ml-1 text-[10px]" aria-hidden="true">(click to show)</span>
+                      </button>
+                    ) : (
+                      <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-all text-muted-foreground">
+                        {typeof result === "string"
+                          ? (result.length > 4000 ? result.slice(0, 4000) + "\n… (truncated)" : result)
+                          : JSON.stringify(result, null, 2)}
+                      </pre>
+                    )}
                   </>
                 )}
                 {systemTags && systemTags.length > 0 && (

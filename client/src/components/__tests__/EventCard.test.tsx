@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { EventCard } from '../EventCard'
 
 describe('EventCard permission description', () => {
@@ -35,5 +35,62 @@ describe('EventCard permission description', () => {
     )
     expect(screen.getByText('Allow shell access')).toBeTruthy()
     expect(screen.queryByTestId('permission-description')).toBeNull()
+  })
+})
+
+describe('EventCard tool result display hint', () => {
+  it('shows "Result omitted" label when display is omitted', () => {
+    render(
+      <EventCard
+        toolName="Bash"
+        input={{ command: 'ls' }}
+        result="file1.txt\nfile2.txt"
+        display="omitted"
+        defaultCollapsed={false}
+      />
+    )
+    expect(screen.getByText('Result omitted')).toBeTruthy()
+  })
+
+  it('shows "Result summarized" label when display is summarized', () => {
+    render(
+      <EventCard
+        toolName="Bash"
+        input={{ command: 'ls' }}
+        result="file1.txt\nfile2.txt"
+        display="summarized"
+        defaultCollapsed={false}
+      />
+    )
+    expect(screen.getByText('Result summarized')).toBeTruthy()
+  })
+
+  it('expands to show result after clicking the label', () => {
+    render(
+      <EventCard
+        toolName="Bash"
+        input={{ command: 'ls' }}
+        result="file1.txt"
+        display="omitted"
+        defaultCollapsed={false}
+      />
+    )
+    expect(screen.queryByText(/file1\.txt/)).toBeNull()
+    fireEvent.click(screen.getByText('Result omitted'))
+    expect(screen.getByText(/file1\.txt/)).toBeTruthy()
+  })
+
+  it('renders result normally when display is undefined', () => {
+    render(
+      <EventCard
+        toolName="Bash"
+        input={{ command: 'ls' }}
+        result="file1.txt"
+        defaultCollapsed={false}
+      />
+    )
+    expect(screen.getByText(/file1\.txt/)).toBeTruthy()
+    expect(screen.queryByText('Result omitted')).toBeNull()
+    expect(screen.queryByText('Result summarized')).toBeNull()
   })
 })
