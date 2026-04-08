@@ -17,7 +17,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
-import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, isTurnMessage, type TurnState } from './turn-lifecycle.js'
+import { shouldBroadcastTurnStarted, type TurnState } from './turn-lifecycle.js'
 import { SessionStatusTracker } from './session-status.js'
 import { waitForSessionId } from './session-id-resolver.js'
 
@@ -159,7 +159,6 @@ export class SessionManager {
   private streamingSessionIds = new Set<string>()
   private sessionListeners = new Map<string, Set<SessionListener>>()
   private idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
-  private pendingRemaps = new Map<string, { sessionIdRef: { current: string } }>()
   // Track cwd for each session so we can resume in the correct project
   private sessionCwds = new Map<string, string>()
   /** User-supplied creation options that must survive resume cycles */
@@ -350,18 +349,24 @@ export class SessionManager {
   }
 
   async createSession(
-    options?: { model?: string; cwd?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> },
+    options: { message: string; cwd?: string; model?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> },
   ): Promise<string> {
-    const cwd = options?.cwd ?? process.env.CC_WEB_CONSOLE_CWD ?? process.env.HOME ?? '/'
+    const cwd = options.cwd ?? process.env.CC_WEB_CONSOLE_CWD ?? process.env.HOME ?? '/'
     const sessionIdRef = { current: '' }
     const pluginArgs = getPluginDirArgs()
-    const userArgs = options?.executableArgs ?? []
+    const userArgs = options.executableArgs ?? []
+    const opts: SessionCreationOptions = {
+      model: options.model,
+      permissionMode: options.permissionMode,
+      executableArgs: options.executableArgs,
+      env: options.env,
+    }
     const sessionOptions = {
-      ...(options?.model ? { model: options.model } : {}),
-      permissionMode: options?.permissionMode ?? 'default',
+      ...(options.model ? { model: options.model } : {}),
+      permissionMode: options.permissionMode ?? 'default',
       canUseTool: this.buildCanUseTool(sessionIdRef),
       onElicitation: this.buildOnElicitation(sessionIdRef),
-      env: { ...cleanEnv(cwd), ...options?.env },
+      env: { ...cleanEnv(cwd), ...options.env },
       pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE,
       executableArgs: [...pluginArgs, ...userArgs],
     } as SDKSessionOptions
@@ -371,28 +376,22 @@ export class SessionManager {
     const session = unstable_v2_createSession(sessionOptions)
     try { process.chdir(originalCwd) } catch { /* ignore */ }
 
-    // New sessions need send() before sessionId is available.
-    // Use a temporary ID, then remap when real sessionId arrives.
-    const tempId = `pending-${Date.now()}`
-    this.sessions.set(tempId, session)
-    this.sessionStatus.set(tempId, 'idle')
-    this.sessionCwds.set(tempId, cwd)
-    this.sessionCreationOptions.set(tempId, {
-      model: options?.model,
-      permissionMode: options?.permissionMode,
-      executableArgs: options?.executableArgs,
-      env: options?.env,
-    })
+    // Send first message so the SDK can assign a real sessionId
+    await session.send(options.message)
+    const sessionId = await waitForSessionId(session, 30000)
+    sessionIdRef.current = sessionId
 
-    // Store tempId in pendingRemaps for remap inside consumeStream
-    this.pendingRemaps.set(tempId, { sessionIdRef })
+    // Register under real sessionId — no tempId ever exists
+    this.sessions.set(sessionId, session)
+    this.sessionStatus.set(sessionId, 'running')
+    this.sessionCwds.set(sessionId, cwd)
+    this.sessionCreationOptions.set(sessionId, opts)
+    saveSessionOptions(sessionId, opts)
 
-    // For new sessions, start stream immediately — SDK may emit init messages
-    this.startStreamConsumer(tempId, session)
+    // Turn is already active from send(), start consuming the stream
+    this.startStreamConsumer(sessionId, session)
 
-    // SDK requires send() before sessionId is available.
-    // Return tempId now; real sessionId arrives via session_id_resolved WS event after first send().
-    return tempId
+    return sessionId
   }
 
   private fetchAndBroadcastModels(sessionId: string, session: SDKSession, currentModel?: string): void {
@@ -425,22 +424,17 @@ export class SessionManager {
     initialSessionId: string,
     session: SDKSession,
   ): Promise<void> {
-    // Track the current sessionId — may change from tempId to real sessionId
-    let currentSessionId = initialSessionId
+    const sessionId = initialSessionId
     let modelsFetched = false
 
     try {
       // SDK's stream() ends after each turn (on "result" message).
       // Loop to re-enter stream() for subsequent turns.
       while (true) {
-        this.log.info({ sessionId: currentSessionId }, 'consumeStream: entering stream()')
+        this.log.info({ sessionId }, 'consumeStream: entering stream()')
         const query = session.stream()
         const turnState: TurnState = { turnStarted: false }
-        // Store query reference so control requests (setModel etc.) can use it
-        try {
-          const sid = session.sessionId
-          this.activeQueries.set(sid, query)
-        } catch { /* sessionId not yet available, will set after remap */ }
+        this.activeQueries.set(sessionId, query)
 
         for await (const msg of query) {
           const msgAny = msg as Record<string, unknown>
@@ -448,51 +442,44 @@ export class SessionManager {
             type: msgAny.type,
             subtype: msgAny.subtype,
             parentToolUseId: msgAny.parent_tool_use_id,
-            sessionId: currentSessionId,
+            sessionId,
             message: JSON.stringify(msg).slice(0, 50),
           }, 'Stream message received')
 
           // Fetch models once after stream is active (works for both new and resumed sessions)
           if (!modelsFetched) {
             modelsFetched = true
-            try {
-              const sid = session.sessionId
-              // Update query ref now that sessionId is available
-              this.activeQueries.set(sid, query)
-              this.fetchAndBroadcastModels(sid, session, (msgAny.type === 'system' && msgAny.subtype === 'init') ? (msgAny.model as string) : undefined)
-            } catch { /* session not yet initialized */ }
+            this.activeQueries.set(sessionId, query)
+            this.fetchAndBroadcastModels(sessionId, session, (msgAny.type === 'system' && msgAny.subtype === 'init') ? (msgAny.model as string) : undefined)
           }
 
           // Extract commands from init message, then enrich with full descriptions
           if (msgAny.type === 'system' && msgAny.subtype === 'init') {
-            try {
-              const sid = session.sessionId
-              const slashCmds = (msgAny.slash_commands as string[]) ?? []
-              const skills = (msgAny.skills as string[]) ?? []
-              const allNames = new Set([...slashCmds, ...skills])
-              // Set basic cache immediately so getCommands() doesn't return empty
-              this.sessionCommands.set(sid, Array.from(allNames).map((name) => ({
-                name,
-                description: skills.includes(name) ? 'skill' : '',
-              })))
-              // Async: fetch full descriptions from supportedCommands()
-              const q = (session as unknown as { query: { supportedCommands(): Promise<{ name: string; description: string }[]> } }).query
-              q?.supportedCommands()?.then((cmds: { name: string; description: string }[]) => {
-                if (cmds.length > 0) {
-                  // Merge: use supportedCommands descriptions, but keep init-only skills that supportedCommands missed
-                  const cmdMap = new Map(cmds.map((c) => [c.name, c]))
-                  const existing = this.sessionCommands.get(sid) ?? []
-                  for (const prev of existing) {
-                    if (!cmdMap.has(prev.name)) {
-                      cmdMap.set(prev.name, prev)
-                    }
+            const slashCmds = (msgAny.slash_commands as string[]) ?? []
+            const skills = (msgAny.skills as string[]) ?? []
+            const allNames = new Set([...slashCmds, ...skills])
+            // Set basic cache immediately so getCommands() doesn't return empty
+            this.sessionCommands.set(sessionId, Array.from(allNames).map((name) => ({
+              name,
+              description: skills.includes(name) ? 'skill' : '',
+            })))
+            // Async: fetch full descriptions from supportedCommands()
+            const q = (session as unknown as { query: { supportedCommands(): Promise<{ name: string; description: string }[]> } }).query
+            q?.supportedCommands()?.then((cmds: { name: string; description: string }[]) => {
+              if (cmds.length > 0) {
+                // Merge: use supportedCommands descriptions, but keep init-only skills that supportedCommands missed
+                const cmdMap = new Map(cmds.map((c) => [c.name, c]))
+                const existing = this.sessionCommands.get(sessionId) ?? []
+                for (const prev of existing) {
+                  if (!cmdMap.has(prev.name)) {
+                    cmdMap.set(prev.name, prev)
                   }
-                  this.sessionCommands.set(sid, Array.from(cmdMap.values()))
-                  // Notify via broadcast so ws-handler can push updated list
-                  this.broadcast(sid, (l) => l.onMessage(sid, { type: 'commands_updated' } as unknown as SDKMessage))
                 }
-              }).catch(() => {})
-            } catch { /* session not yet initialized */ }
+                this.sessionCommands.set(sessionId, Array.from(cmdMap.values()))
+                // Notify via broadcast so ws-handler can push updated list
+                this.broadcast(sessionId, (l) => l.onMessage(sessionId, { type: 'commands_updated' } as unknown as SDKMessage))
+              }
+            }).catch(() => {})
           }
           if (msgAny.type === 'result') {
             if (msgAny.is_error) {
@@ -500,61 +487,17 @@ export class SessionManager {
             } else {
               this.log.info({ cost: (msgAny as Record<string, unknown>).total_cost_usd }, 'Turn complete')
             }
-            this.sessionStatus.set(currentSessionId, 'idle')
-          }
-
-          let sessionId: string
-          try {
-            sessionId = session.sessionId
-          } catch {
-            continue
-          }
-
-          // Remap tempId → real sessionId (O(1) lookup)
-          const remap = this.pendingRemaps.get(initialSessionId)
-          if (remap && remap.sessionIdRef.current === '' && sessionId && !sessionId.startsWith('pending-')) {
-            remap.sessionIdRef.current = sessionId
-            const tempId = initialSessionId
-            // Move session, cwd, listeners, streaming from tempId to real sessionId
-            const s = this.sessions.get(tempId)
-            if (s) { this.sessions.delete(tempId); this.sessions.set(sessionId, s) }
-            const c = this.sessionCwds.get(tempId)
-            if (c) { this.sessionCwds.delete(tempId); this.sessionCwds.set(sessionId, c) }
-            const opts = this.sessionCreationOptions.get(tempId)
-            if (opts) { this.sessionCreationOptions.delete(tempId); this.sessionCreationOptions.set(sessionId, opts); saveSessionOptions(sessionId, opts) }
-            const listeners = this.sessionListeners.get(tempId)
-            if (listeners) { this.sessionListeners.delete(tempId); this.sessionListeners.set(sessionId, listeners) }
-            this.streamingSessionIds.delete(tempId)
-            this.streamingSessionIds.add(sessionId)
-            const prevStatus = this.sessionStatus.get(tempId)
-            this.sessionStatus.delete(tempId)
-            if (prevStatus) this.sessionStatus.set(sessionId, prevStatus)
-            const q = this.activeQueries.get(tempId)
-            if (q) { this.activeQueries.delete(tempId); this.activeQueries.set(sessionId, q) }
-            this.pendingRemaps.delete(tempId)
-            // Update our tracking variable
-            currentSessionId = sessionId
-            // Notify listeners of the remap
-            this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
-              type: 'session_id_resolved', tempId, sessionId,
-            } as unknown as SDKMessage))
+            this.sessionStatus.set(sessionId, 'idle')
           }
 
           // Set session status to running on first turn message (skip system/init)
-          if (isTurnMessage(msgAny) && shouldBroadcastTurnStarted(turnState)) {
+          if (shouldBroadcastTurnStarted(turnState)) {
             this.sessionStatus.set(sessionId, 'running')
           }
           this.broadcast(sessionId, (l) => l.onMessage(sessionId, msg))
         }
-        this.log.info({ sessionId: currentSessionId }, 'consumeStream: stream() ended (turn complete)')
-        // Check if session was closed while we were streaming
-        let sessionId: string
-        try { sessionId = session.sessionId } catch { break }
+        this.log.info({ sessionId }, 'consumeStream: stream() ended (turn complete)')
         if (this.closedSessionIds.has(sessionId)) break
-        // Reset to idle if stream ended without a result (e.g. init-only stream)
-        if (shouldResetToIdleOnStreamEnd(this.sessionStatus.get(sessionId))) {
-          this.sessionStatus.set(sessionId, 'idle')
-        }
         // Wait briefly before re-entering stream() for next turn
         await new Promise((r) => setTimeout(r, 50))
       }
@@ -564,32 +507,15 @@ export class SessionManager {
         this.log.error({ err }, 'Stream error')
       }
     } finally {
-      try {
-        const sessionId = session.sessionId
-        this.sessionStatus.set(sessionId, 'stopped')
-        this.streamingSessionIds.delete(sessionId)
-        this.activeQueries.delete(sessionId)
-        // Clean up stale session object if stream ended unexpectedly (not via explicit closeSession).
-        // Without this, the session stays in this.sessions (appears "already running")
-        // while sessionStatus shows it as idle — making resume impossible.
-        if (this.sessions.has(sessionId) && !this.closedSessionIds.has(sessionId)) {
-          const s = this.sessions.get(sessionId)
-          this.sessions.delete(sessionId)
-          try { s?.close() } catch { /* already closed */ }
-        }
-        this.broadcast(sessionId, (l) => l.onEnd(sessionId))
-      } catch {
-        // Session never initialized — try with our tracked id
-        this.sessionStatus.set(currentSessionId, 'stopped')
-        this.streamingSessionIds.delete(currentSessionId)
-        this.activeQueries.delete(currentSessionId)
-        if (this.sessions.has(currentSessionId) && !this.closedSessionIds.has(currentSessionId)) {
-          const s = this.sessions.get(currentSessionId)
-          this.sessions.delete(currentSessionId)
-          try { s?.close() } catch { /* already closed */ }
-        }
-        this.broadcast(currentSessionId, (l) => l.onEnd(currentSessionId))
+      this.sessionStatus.set(sessionId, 'stopped')
+      this.streamingSessionIds.delete(sessionId)
+      this.activeQueries.delete(sessionId)
+      if (this.sessions.has(sessionId) && !this.closedSessionIds.has(sessionId)) {
+        const s = this.sessions.get(sessionId)
+        this.sessions.delete(sessionId)
+        try { s?.close() } catch { /* already closed */ }
       }
+      this.broadcast(sessionId, (l) => l.onEnd(sessionId))
     }
   }
 
@@ -875,7 +801,6 @@ export class SessionManager {
 
       // Keep sessionCwds and sessionCommands — they're metadata needed for re-resume.
       // Only clean up runtime state.
-      this.pendingRemaps.delete(sessionId)
       // Deny pending permissions only for this session
       for (const [id, entry] of this.pendingPermissions) {
         if (entry.sessionId === sessionId) {
