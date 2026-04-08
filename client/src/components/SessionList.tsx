@@ -244,7 +244,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
           {/* Toolbar: Open Directory + Jump to Session */}
           <div className="px-4 py-2 flex items-center gap-1.5 border-b border-slate-100">
             <button
-              onClick={() => setShowDirInput(true)}
+              onClick={() => { setDirPath(defaultCwd || ''); setShowDirInput(true); if (defaultCwd && onRequestFiles) onRequestFiles(defaultCwd.endsWith('/') ? defaultCwd : defaultCwd + '/') }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors"
               title="Open directory"
             >
@@ -252,28 +252,13 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
               <span>Open</span>
             </button>
             <div className="w-px h-4 bg-slate-200" />
-            {showJump ? (
-              <div className="flex-1 flex gap-1">
-                <input
-                  type="text"
-                  value={jumpId}
-                  onChange={(e) => setJumpId(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleJump(); if (e.key === "Escape") { setShowJump(false); setJumpId('') } }}
-                  placeholder="Session ID..."
-                  autoFocus
-                  className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs font-mono text-foreground outline-none placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-                <button onClick={handleJump} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-xs transition-colors">Go</button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowJump(true)}
-                className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
-              >
-                <Search className="w-3.5 h-3.5" />
-                Jump to session...
-              </button>
-            )}
+            <button
+              onClick={() => { setJumpId(''); setShowJump(true) }}
+              className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
+            >
+              <Search className="w-3.5 h-3.5" />
+              Jump to session...
+            </button>
           </div>
 
           {/* Open Directory Dialog */}
@@ -346,6 +331,37 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
                     className="px-4 py-1.5 text-xs bg-primary text-white rounded-lg disabled:opacity-40"
                   >
                     Open
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Jump to Session Dialog */}
+          {showJump && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/20" onClick={() => setShowJump(false)} />
+              <div className="relative bg-white rounded-xl shadow-lg border border-slate-200 w-full max-w-md mx-4 p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Jump to Session</h3>
+                <input
+                  value={jumpId}
+                  onChange={(e) => setJumpId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { handleJump(); setShowJump(false) }
+                    if (e.key === 'Escape') setShowJump(false)
+                  }}
+                  placeholder="Paste session ID..."
+                  autoFocus
+                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <div className="flex justify-end gap-2 mt-4">
+                  <button onClick={() => setShowJump(false)} className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700">Cancel</button>
+                  <Button
+                    onClick={() => { handleJump(); setShowJump(false) }}
+                    disabled={!jumpId.trim()}
+                    className="px-4 py-1.5 text-xs bg-primary text-white rounded-lg disabled:opacity-40"
+                  >
+                    Jump
                   </Button>
                 </div>
               </div>
