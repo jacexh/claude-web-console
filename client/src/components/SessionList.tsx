@@ -23,13 +23,12 @@ interface SessionListProps {
   sessions: SessionInfo[]
   activeSessionId: string | null
   onSelect: (sessionId: string) => void
-  onCreate: (projectCwd?: string) => void
+  onNewChat: () => void
   connected: boolean
   onToggleCollapse: () => void
   onClose: (sessionId: string) => void
   onRename: (sessionId: string, title: string) => void
   defaultCwd: string
-  onOpenDirectory: () => void
 }
 
 /** Extract the last directory name from a path for display */
@@ -76,7 +75,7 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`
 }
 
-export function SessionList({ sessions, activeSessionId, onSelect, onCreate, connected, onToggleCollapse, onClose, onRename, defaultCwd, onOpenDirectory }: SessionListProps) {
+export function SessionList({ sessions, activeSessionId, onSelect, onNewChat, connected, onToggleCollapse, onClose, onRename, defaultCwd }: SessionListProps) {
   const [page, setPage] = useState(0)
   const [jumpId, setJumpId] = useState("")
   const [showJump, setShowJump] = useState(false)
@@ -203,16 +202,9 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
             )}
           </ScrollArea>
 
-          {/* Footer: Open Directory */}
+          {/* Footer */}
           <div className="p-4 border-t border-slate-100 bg-white">
-            <Button
-              onClick={onOpenDirectory}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Plus className="h-5 w-5" />
-              New Session
-            </Button>
-            <div className="flex items-center justify-between text-slate-400 mt-3">
+            <div className="flex items-center justify-between text-slate-400">
               <button className="hover:text-slate-600">
                 <HelpCircle className="w-5 h-5" />
               </button>
@@ -244,11 +236,11 @@ export function SessionList({ sessions, activeSessionId, onSelect, onCreate, con
 
           <div className="px-4 pb-2 space-y-2">
             <Button
-              onClick={() => onCreate(selectedProject)}
+              onClick={() => onNewChat()}
               className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm"
             >
               <Plus className="h-5 w-5" />
-              New Session
+              New Chat
             </Button>
 
             {/* Jump to session */}
