@@ -161,7 +161,7 @@ describe('SubAgentCard renderItem', () => {
     expect(screen.getByText('Explore')).toBeTruthy()
   })
 
-  it('returns null for system type items (task notifications should not render)', () => {
+  it('renders system type items as inline status lines (nested async agent events)', () => {
     renderExpanded([
       {
         id: 'sys-1',
@@ -171,9 +171,10 @@ describe('SubAgentCard renderItem', () => {
       } as ChatItem,
       { id: 'a1', type: 'assistant', content: 'visible text', timestamp: 0 },
     ])
-    // system item should not render — only the assistant message should be visible
-    expect(screen.queryByText('🚀')).toBeNull()
-    expect(screen.queryByText('Background agent')).toBeNull()
+    // system item should render as inline status line
+    expect(screen.getByText('Background agent')).toBeTruthy()
+    expect(screen.getByText('— started')).toBeTruthy()
+    // assistant message also renders
     expect(screen.getByText('visible text')).toBeTruthy()
   })
 
@@ -280,5 +281,36 @@ describe('SubAgentCard nested agent status determination', () => {
     ])
     // Final fallback: uses data.name which is 'Agent'
     expect(screen.getByText('Agent')).toBeTruthy()
+  })
+})
+
+describe('SubAgentCard taskProgress display', () => {
+  it('shows token/tool/duration usage in header when taskProgress is provided', () => {
+    render(
+      <SubAgentCard
+        {...baseProps}
+        status="running"
+        taskProgress={{ tokens: 1500, toolUses: 3, durationMs: 12000 }}
+      />
+    )
+    expect(screen.getByText('1,500 tokens')).toBeTruthy()
+    expect(screen.getByText('3 tools')).toBeTruthy()
+    expect(screen.getByText('12s')).toBeTruthy()
+  })
+
+  it('does not show usage when taskProgress is not provided', () => {
+    render(<SubAgentCard {...baseProps} status="running" />)
+    expect(screen.queryByText('tokens')).toBeNull()
+  })
+
+  it('shows lastToolName when available', () => {
+    render(
+      <SubAgentCard
+        {...baseProps}
+        status="running"
+        taskProgress={{ tokens: 500, toolUses: 1, durationMs: 3000, lastToolName: 'Bash' }}
+      />
+    )
+    expect(screen.getByText('Bash')).toBeTruthy()
   })
 })

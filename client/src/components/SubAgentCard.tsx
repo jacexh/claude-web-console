@@ -17,9 +17,16 @@ interface SubAgentCardProps {
   onExpand: (sessionId: string, agentId: string) => void
   onSelectArtifact?: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
   onPermissionDecision?: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('../types').PermissionSuggestion[]) => void
+  taskProgress?: {
+    tokens: number
+    toolUses: number
+    durationMs: number
+    lastToolName?: string
+    description?: string
+  }
 }
 
-export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision }: SubAgentCardProps) {
+export function SubAgentCard({ agentId, sessionId, agentName, description, status, resultPreview, resultText, subagentMessages, allSubagentMessages, onExpand, onSelectArtifact, onPermissionDecision, taskProgress }: SubAgentCardProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Auto-expand when subagent starts streaming messages
@@ -93,6 +100,16 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
           />
         )
       }
+      case 'system': {
+        const sys = item.content as { emoji?: string; name?: string; summary?: string }
+        return (
+          <div key={item.id} className="flex items-center gap-2 text-xs text-slate-500 py-1">
+            {sys.emoji && <span>{sys.emoji}</span>}
+            {sys.name && <span className="font-medium text-violet-700">{sys.name}</span>}
+            {sys.summary && <span className="text-slate-400">— {sys.summary}</span>}
+          </div>
+        )
+      }
       default:
         return null
     }
@@ -111,6 +128,17 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
           {status}
         </span>
       </div>
+      {/* Task progress */}
+      {taskProgress && (
+        <div className="px-4 py-1.5 text-xs text-slate-600 flex items-center gap-3 border-b border-[#d4c5f9]/30">
+          <span>{taskProgress.tokens.toLocaleString()} tokens</span>
+          <span>{taskProgress.toolUses} tools</span>
+          <span>{Math.round(taskProgress.durationMs / 1000)}s</span>
+          {taskProgress.lastToolName && (
+            <span className="font-mono text-violet-600">{taskProgress.lastToolName}</span>
+          )}
+        </div>
+      )}
       {/* Body */}
       {resultPreview && !expanded && (
         <div className="px-4 py-2 text-xs text-slate-500 truncate">{resultPreview}</div>

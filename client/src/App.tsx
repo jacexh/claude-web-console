@@ -12,7 +12,7 @@ import type { FileEntry } from './components/FileMention'
 import { NewSessionDialog } from './components/NewSessionDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
 import { SettingsModal } from './components/SettingsModal'
-import { isTopLevelTaskEvent, parseTaskNotificationXml, type TaskStartedData, type TaskProgressData, type TaskNotificationData } from './lib/task-message-handler'
+import { classifyTaskEvent, parseTaskNotificationXml, type TaskStartedData, type TaskProgressData, type TaskNotificationData } from './lib/task-message-handler'
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -76,6 +76,8 @@ export function App() {
   // Map taskId → { sessionId, toolUseId } for fast lookup on progress/notification
   const taskMapRef = useRef<Map<string, { sessionId: string; toolUseId: string; description: string }>>(new Map())
   const backgroundToolUseIdsRef = useRef<Set<string>>(new Set())
+  // Maps nested background agent tool_use_id → parent foreground agent tool_use_id
+  const nestedBgAgentMapRef = useRef<Map<string, string>>(new Map())
 
   const updateSessionStatus = useCallback((sessionId: string, patch: Partial<SessionStatusInfo>) => {
     setStatusBySession((prev) => ({
@@ -113,54 +115,126 @@ export function App() {
             }
           }
 
-          // Handle background task messages — render as status lines in chat
-          // Only render top-level task events; skip those nested in foreground subagents
-          if (sdkType === 'system' && msg.subtype === 'task_started' && isTopLevelTaskEvent(msg)) {
+          // Handle task events — route based on whether the originating Agent is background/foreground/nested
+          if (sdkType === 'system' && msg.subtype === 'task_started') {
             const data = msg as unknown as TaskStartedData & { subtype: string; type: string }
             if (data.tool_use_id) {
               taskMapRef.current.set(data.task_id, { sessionId, toolUseId: data.tool_use_id, description: data.description })
             }
-            // Look up agent name from the original tool_use ChatItem
-            const items = store.messagesBySession[sessionId] ?? []
-            const toolItem = data.tool_use_id ? items.find(it => it.id === data.tool_use_id) : undefined
-            const agentDesc = toolItem?.toolInput?.description as string | undefined
-            const name = agentDesc ?? data.description
-            store.addChatItem(sessionId, {
-              id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
-              type: 'system',
-              content: { emoji: '🚀', name, summary: 'started' },
-              timestamp: Date.now(),
-            })
+            const route = classifyTaskEvent(data.tool_use_id, backgroundToolUseIdsRef.current, nestedBgAgentMapRef.current)
+            if (route?.target === 'main-status-line') {
+              const items = store.messagesBySession[sessionId] ?? []
+              const toolItem = data.tool_use_id ? items.find(it => it.id === data.tool_use_id) : undefined
+              const agentDesc = toolItem?.toolInput?.description as string | undefined
+              const name = agentDesc ?? data.description
+              store.addChatItem(sessionId, {
+                id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                type: 'system',
+                content: { emoji: '🚀', name, summary: 'started' },
+                timestamp: Date.now(),
+              })
+            } else if (route?.target === 'update-subagent-card') {
+              store.updateChatItem(sessionId, route.toolUseId, {
+                taskId: data.task_id,
+                taskStatus: 'running',
+              })
+            } else if (route?.target === 'nested-subagent') {
+              const key = `${sessionId}:${route.parentToolUseId}`
+              setSubagentMessages(prev => ({
+                ...prev,
+                [key]: [...(prev[key] ?? []), {
+                  id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                  type: 'system' as const,
+                  content: { emoji: '🚀', name: data.description, summary: 'started' },
+                  timestamp: Date.now(),
+                }],
+              }))
+            }
             break
           }
 
-          if (sdkType === 'system' && msg.subtype === 'task_progress' && isTopLevelTaskEvent(msg)) {
+          if (sdkType === 'system' && msg.subtype === 'task_progress') {
             const data = msg as unknown as TaskProgressData & { subtype: string; type: string }
             const entry = taskMapRef.current.get(data.task_id)
+            const toolUseId = entry?.toolUseId
+            const route = classifyTaskEvent(toolUseId, backgroundToolUseIdsRef.current, nestedBgAgentMapRef.current)
             const name = entry?.description ?? data.description
-            const tokens = (data.usage.total_tokens ?? 0).toLocaleString()
-            const tools = data.usage.tool_uses ?? 0
-            const secs = Math.round((data.usage.duration_ms ?? 0) / 1000)
-            store.addChatItem(sessionId, {
-              id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
-              type: 'system',
-              content: { emoji: '⏳', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
-              timestamp: Date.now(),
-            })
+            if (route?.target === 'main-status-line') {
+              const tokens = (data.usage.total_tokens ?? 0).toLocaleString()
+              const tools = data.usage.tool_uses ?? 0
+              const secs = Math.round((data.usage.duration_ms ?? 0) / 1000)
+              store.addChatItem(sessionId, {
+                id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                type: 'system',
+                content: { emoji: '⏳', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
+                timestamp: Date.now(),
+              })
+            } else if (route?.target === 'update-subagent-card') {
+              store.updateChatItem(sessionId, route.toolUseId, {
+                taskProgress: {
+                  tokens: data.usage.total_tokens,
+                  toolUses: data.usage.tool_uses,
+                  durationMs: data.usage.duration_ms,
+                  lastToolName: data.last_tool_name,
+                  description: data.description,
+                },
+              })
+            } else if (route?.target === 'nested-subagent') {
+              const key = `${sessionId}:${route.parentToolUseId}`
+              const tokens = (data.usage.total_tokens ?? 0).toLocaleString()
+              const tools = data.usage.tool_uses ?? 0
+              const secs = Math.round((data.usage.duration_ms ?? 0) / 1000)
+              setSubagentMessages(prev => ({
+                ...prev,
+                [key]: [...(prev[key] ?? []), {
+                  id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                  type: 'system' as const,
+                  content: { emoji: '⏳', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
+                  timestamp: Date.now(),
+                }],
+              }))
+            }
             break
           }
 
-          if (sdkType === 'system' && msg.subtype === 'task_notification' && isTopLevelTaskEvent(msg)) {
+          if (sdkType === 'system' && msg.subtype === 'task_notification') {
             const data = msg as unknown as TaskNotificationData & { subtype: string; type: string }
             const entry = taskMapRef.current.get(data.task_id)
+            const toolUseId = entry?.toolUseId
+            const route = classifyTaskEvent(toolUseId, backgroundToolUseIdsRef.current, nestedBgAgentMapRef.current)
             const name = entry?.description ?? data.task_id
             const isFailed = data.status === 'failed' || data.status === 'stopped'
-            store.addChatItem(sessionId, {
-              id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
-              type: 'system',
-              content: { emoji: isFailed ? '❌' : '✅', name, summary: data.summary },
-              timestamp: Date.now(),
-            })
+            if (route?.target === 'main-status-line') {
+              store.addChatItem(sessionId, {
+                id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                type: 'system',
+                content: { emoji: isFailed ? '❌' : '✅', name, summary: data.summary },
+                timestamp: Date.now(),
+              })
+            } else if (route?.target === 'update-subagent-card') {
+              store.updateChatItem(sessionId, route.toolUseId, {
+                taskStatus: data.status,
+                content: { result: data.summary },
+                ...(data.usage ? {
+                  taskProgress: {
+                    tokens: data.usage.total_tokens,
+                    toolUses: data.usage.tool_uses,
+                    durationMs: data.usage.duration_ms,
+                  },
+                } : {}),
+              })
+            } else if (route?.target === 'nested-subagent') {
+              const key = `${sessionId}:${route.parentToolUseId}`
+              setSubagentMessages(prev => ({
+                ...prev,
+                [key]: [...(prev[key] ?? []), {
+                  id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
+                  type: 'system' as const,
+                  content: { emoji: isFailed ? '❌' : '✅', name, summary: data.summary },
+                  timestamp: Date.now(),
+                }],
+              }))
+            }
             if (entry) taskMapRef.current.delete(data.task_id)
             break
           }
@@ -183,6 +257,10 @@ export function App() {
                   const toolName = block.name as string
                   const toolId = block.id as string
                   const toolInput = block.input as Record<string, unknown>
+                  // Track nested background agents for task event routing
+                  if (toolName === 'Agent' && toolInput.run_in_background) {
+                    nestedBgAgentMapRef.current.set(toolId, parentToolUseId)
+                  }
                   // Check if a permission_request arrived before this tool_use
                   const pendingPerm = pendingPermissionsRef.current.get(toolId)
                   if (pendingPerm) pendingPermissionsRef.current.delete(toolId)

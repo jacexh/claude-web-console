@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { handleTaskStarted, handleTaskProgress, handleTaskNotification, isTopLevelTaskEvent, parseTaskNotificationXml } from '../task-message-handler'
+import { handleTaskStarted, handleTaskProgress, handleTaskNotification, parseTaskNotificationXml, classifyTaskEvent } from '../task-message-handler'
 import type { ChatItem } from '../../types'
 
 function makeToolUseItem(id: string, overrides?: Partial<ChatItem>): ChatItem {
@@ -147,72 +147,6 @@ describe('handleTaskNotification', () => {
   })
 })
 
-describe('isTopLevelTaskEvent', () => {
-  it('returns true for task_started without parent_tool_use_id', () => {
-    const msg = { type: 'system', subtype: 'task_started', task_id: 'task-1' }
-    expect(isTopLevelTaskEvent(msg)).toBe(true)
-  })
-
-  it('returns true for task_progress without parent_tool_use_id', () => {
-    const msg = { type: 'system', subtype: 'task_progress', task_id: 'task-1' }
-    expect(isTopLevelTaskEvent(msg)).toBe(true)
-  })
-
-  it('returns true for task_notification without parent_tool_use_id', () => {
-    const msg = { type: 'system', subtype: 'task_notification', task_id: 'task-1' }
-    expect(isTopLevelTaskEvent(msg)).toBe(true)
-  })
-
-  it('returns false for task_started with parent_tool_use_id (nested in foreground subagent)', () => {
-    const msg = { type: 'system', subtype: 'task_started', task_id: 'task-1', parent_tool_use_id: 'agent-tool-1' }
-    expect(isTopLevelTaskEvent(msg)).toBe(false)
-  })
-
-  it('returns false for task_progress with parent_tool_use_id', () => {
-    const msg = { type: 'system', subtype: 'task_progress', task_id: 'task-1', parent_tool_use_id: 'agent-tool-1' }
-    expect(isTopLevelTaskEvent(msg)).toBe(false)
-  })
-
-  it('returns false for task_notification with parent_tool_use_id', () => {
-    const msg = { type: 'system', subtype: 'task_notification', task_id: 'task-1', parent_tool_use_id: 'agent-tool-1' }
-    expect(isTopLevelTaskEvent(msg)).toBe(false)
-  })
-
-  it('returns false for non-task system messages', () => {
-    const msg = { type: 'system', subtype: 'init' }
-    expect(isTopLevelTaskEvent(msg)).toBe(false)
-  })
-
-  it('returns false for non-system messages', () => {
-    const msg = { type: 'assistant', message: { content: [] } }
-    expect(isTopLevelTaskEvent(msg)).toBe(false)
-  })
-
-  it('returns true when parent_tool_use_id is null', () => {
-    const msg = { type: 'system', subtype: 'task_started', task_id: 'task-1', parent_tool_use_id: null }
-    expect(isTopLevelTaskEvent(msg)).toBe(true)
-  })
-
-  it('returns true when parent_tool_use_id is undefined', () => {
-    const msg = { type: 'system', subtype: 'task_started', task_id: 'task-1', parent_tool_use_id: undefined }
-    expect(isTopLevelTaskEvent(msg)).toBe(true)
-  })
-
-  it('returns true when parent_tool_use_id is empty string (falsy = no parent)', () => {
-    const msg = { type: 'system', subtype: 'task_started', task_id: 'task-1', parent_tool_use_id: '' }
-    expect(isTopLevelTaskEvent(msg)).toBe(true)
-  })
-
-  it('returns false for unknown system subtype', () => {
-    const msg = { type: 'system', subtype: 'unknown_subtype' }
-    expect(isTopLevelTaskEvent(msg)).toBe(false)
-  })
-
-  it('returns false when type and subtype are missing', () => {
-    expect(isTopLevelTaskEvent({})).toBe(false)
-  })
-})
-
 describe('handleTaskStarted edge cases', () => {
   it('returns null when data has no tool_use_id', () => {
     const item = makeToolUseItem('tool-1')
@@ -355,5 +289,55 @@ describe('parseTaskNotificationXml', () => {
     expect(result).not.toBeNull()
     expect(result!.status).toBe('completed')
     expect(result!.summary).toBe('Successfully processed all files')
+  })
+})
+
+describe('classifyTaskEvent', () => {
+  // Scenario 1: top-level async SubAgent → render as main chat status line
+  it('routes to main-status-line when tool_use_id is a known background agent', () => {
+    const bgIds = new Set(['tool-bg-1'])
+    const nestedMap = new Map<string, string>()
+    const result = classifyTaskEvent('tool-bg-1', bgIds, nestedMap)
+    expect(result).toEqual({ target: 'main-status-line' })
+  })
+
+  // Scenario 2: top-level sync SubAgent → update SubAgentCard usage
+  it('routes to update-subagent-card when tool_use_id is a known foreground agent', () => {
+    const bgIds = new Set<string>()
+    const nestedMap = new Map<string, string>()
+    const result = classifyTaskEvent('tool-fg-1', bgIds, nestedMap)
+    expect(result).toEqual({ target: 'update-subagent-card', toolUseId: 'tool-fg-1' })
+  })
+
+  // Scenario 3: nested async SubSubAgent inside sync SubAgent → route to parent subagentMessages
+  it('routes to nested-subagent when tool_use_id is in nestedBgAgentMap', () => {
+    const bgIds = new Set<string>()
+    const nestedMap = new Map([['tool-nested-bg', 'tool-parent-fg']])
+    const result = classifyTaskEvent('tool-nested-bg', bgIds, nestedMap)
+    expect(result).toEqual({ target: 'nested-subagent', parentToolUseId: 'tool-parent-fg' })
+  })
+
+  // Scenario 4: unknown tool_use_id → drop
+  it('returns null when tool_use_id is undefined', () => {
+    const bgIds = new Set<string>()
+    const nestedMap = new Map<string, string>()
+    const result = classifyTaskEvent(undefined, bgIds, nestedMap)
+    expect(result).toBeNull()
+  })
+
+  // Priority: nestedBgAgentMap takes precedence over fallback to update-subagent-card
+  it('nestedBgAgentMap takes precedence over default foreground route', () => {
+    const bgIds = new Set<string>()
+    const nestedMap = new Map([['tool-x', 'tool-parent']])
+    const result = classifyTaskEvent('tool-x', bgIds, nestedMap)
+    expect(result).toEqual({ target: 'nested-subagent', parentToolUseId: 'tool-parent' })
+  })
+
+  // Priority: backgroundToolUseIds takes precedence over nestedBgAgentMap
+  it('backgroundToolUseIds takes precedence over nestedBgAgentMap', () => {
+    const bgIds = new Set(['tool-x'])
+    const nestedMap = new Map([['tool-x', 'tool-parent']])
+    const result = classifyTaskEvent('tool-x', bgIds, nestedMap)
+    expect(result).toEqual({ target: 'main-status-line' })
   })
 })

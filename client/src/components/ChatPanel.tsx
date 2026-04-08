@@ -298,8 +298,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               onExpand={onGetSubagentMessages}
               onSelectArtifact={onSelectArtifact}
               onPermissionDecision={onPermissionDecision}
-
-
+              taskProgress={item.taskProgress}
             />
           )
         }

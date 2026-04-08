@@ -22,13 +22,21 @@ export interface TaskNotificationData {
   usage?: { total_tokens: number; tool_uses: number; duration_ms: number }
 }
 
-const TASK_SUBTYPES = new Set(['task_started', 'task_progress', 'task_notification'])
+export type TaskEventTarget =
+  | { target: 'main-status-line' }
+  | { target: 'update-subagent-card'; toolUseId: string }
+  | { target: 'nested-subagent'; parentToolUseId: string }
 
-/** Returns true only for top-level task system events (no parent_tool_use_id). */
-export function isTopLevelTaskEvent(msg: Record<string, unknown>): boolean {
-  if (msg.type !== 'system') return false
-  if (!TASK_SUBTYPES.has(msg.subtype as string)) return false
-  return !msg.parent_tool_use_id
+/** Classifies where a task event should be routed based on its tool_use_id. */
+export function classifyTaskEvent(
+  toolUseId: string | undefined,
+  backgroundToolUseIds: Set<string>,
+  nestedBgAgentMap: Map<string, string>,
+): TaskEventTarget | null {
+  if (!toolUseId) return null
+  if (backgroundToolUseIds.has(toolUseId)) return { target: 'main-status-line' }
+  if (nestedBgAgentMap.has(toolUseId)) return { target: 'nested-subagent', parentToolUseId: nestedBgAgentMap.get(toolUseId)! }
+  return { target: 'update-subagent-card', toolUseId }
 }
 
 /** Parses `<task-notification>` XML from history text content. Returns null if no match. */
