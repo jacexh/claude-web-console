@@ -590,6 +590,33 @@ export class SessionManager {
     } as unknown as SDKMessage))
   }
 
+  async setPermissionMode(sessionId: string, mode: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    const query = (session as unknown as { query: { setPermissionMode(mode: string): Promise<void> } }).query
+    if (!query?.setPermissionMode) {
+      throw new Error(`Session ${sessionId} does not support setPermissionMode`)
+    }
+    await query.setPermissionMode(mode)
+    this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
+      type: 'permission_mode_changed', sessionId, mode,
+    } as unknown as SDKMessage))
+  }
+
+  async setEnv(sessionId: string, env: Record<string, string>): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) {
+      throw new Error(`Session ${sessionId} not found`)
+    }
+    const query = (session as unknown as { query: { applyFlagSettings(settings: { env?: Record<string, string> }): Promise<void> } }).query
+    if (!query?.applyFlagSettings) {
+      throw new Error(`Session ${sessionId} does not support applyFlagSettings`)
+    }
+    await query.applyFlagSettings({ env })
+  }
+
   getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel; status: 'idle' | 'running' | 'stopped' } {
     return {
       model: this.sessionModels.get(sessionId),

@@ -283,6 +283,16 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             break
           }
 
+          case 'set_permission_mode': {
+            await sessionManager.setPermissionMode(msg.sessionId, msg.mode)
+            break
+          }
+
+          case 'set_env': {
+            await sessionManager.setEnv(msg.sessionId, msg.env)
+            break
+          }
+
           case 'get_subagent_messages': {
             const messages = await sessionManager.getSubagentMessages(msg.sessionId, msg.agentId)
             send({ type: 'subagent_messages', sessionId: msg.sessionId, agentId: msg.agentId, messages })

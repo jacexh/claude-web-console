@@ -94,8 +94,9 @@ export function StatusBar({ status, loading, availableModels, onSetModel, effort
           >
             <option value="default">default</option>
             <option value="plan">plan</option>
-            <option value="autoEdit">autoEdit</option>
-            <option value="fullAuto">fullAuto</option>
+            <option value="acceptEdits">acceptEdits</option>
+            <option value="auto">auto</option>
+            <option value="dontAsk">dontAsk</option>
             <option value="bypassPermissions">bypassPermissions</option>
           </select>
         </span>

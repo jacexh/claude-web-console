@@ -99,6 +99,18 @@ export interface ElicitationResponseMessage {
   content?: Record<string, unknown>
 }
 
+export interface SetPermissionModeMessage {
+  type: 'set_permission_mode'
+  sessionId: string
+  mode: string
+}
+
+export interface SetEnvMessage {
+  type: 'set_env'
+  sessionId: string
+  env: Record<string, string>
+}
+
 export interface GetSessionSettingsMessage {
   type: 'get_session_settings'
   sessionId: string
@@ -122,6 +134,8 @@ export type ClientMessage =
   | SetEffortLevelMessage
   | GetSubagentMessagesMessage
   | ElicitationResponseMessage
+  | SetPermissionModeMessage
+  | SetEnvMessage
   | GetSessionSettingsMessage
 
 // === Server → Client Messages ===

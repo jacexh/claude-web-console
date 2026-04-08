@@ -34,6 +34,8 @@ interface ChatPanelProps {
   onFork?: (sessionId: string, upToMessageId: string) => void
   effortLevel?: EffortLevel
   onSetEffortLevel?: (level: EffortLevel) => void
+  permissionMode?: string
+  onSetPermissionMode?: (mode: string) => void
   subagentMessages?: Record<string, ChatItem[]>
   onGetSubagentMessages?: (sessionId: string, agentId: string) => void
   onElicitationResponse?: (id: string, action: 'accept' | 'decline' | 'cancel', content?: Record<string, unknown>) => void
@@ -65,7 +67,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel: _composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, permissionMode, onSetPermissionMode, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel: _composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -582,7 +584,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         <div className="max-w-4xl mx-auto">
           {sessionRunning ? (
             <>
-              <StatusBar status={sessionStatus} loading={loading} availableModels={availableModels} onSetModel={onSetModel} effortLevel={effortLevel ?? 'medium'} onSetEffortLevel={onSetEffortLevel ?? (() => {})} onOpenSettings={onOpenSettings} />
+              <StatusBar status={sessionStatus} loading={loading} availableModels={availableModels} onSetModel={onSetModel} effortLevel={effortLevel ?? 'medium'} onSetEffortLevel={onSetEffortLevel ?? (() => {})} permissionMode={permissionMode} onSetPermissionMode={onSetPermissionMode} onOpenSettings={onOpenSettings} />
               <div className="relative">
                 {showCmdMenu && menuItems.length > 0 && (
                   <CommandMenu

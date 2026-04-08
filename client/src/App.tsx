@@ -1038,6 +1038,14 @@ export function App() {
     [send, store.activeSessionId],
   )
 
+  const handleSetPermissionMode = useCallback(
+    (mode: string) => {
+      if (!store.activeSessionId) return
+      send({ type: 'set_permission_mode', sessionId: store.activeSessionId, mode })
+    },
+    [send, store.activeSessionId],
+  )
+
   const handleGetSubagentMessages = useCallback(
     (sessionId: string, agentId: string) => {
       send({ type: 'get_subagent_messages', sessionId, agentId })
@@ -1148,6 +1156,8 @@ export function App() {
             onRename={handleRenameSession}
             onFork={handleForkSession}
             effortLevel={effortBySession[store.activeSessionId ?? ''] ?? 'medium'}
+            permissionMode={composePermissionMode}
+            onSetPermissionMode={handleSetPermissionMode}
             onSetEffortLevel={handleSetEffortLevel}
             subagentMessages={subagentMessages}
             onGetSubagentMessages={handleGetSubagentMessages}
@@ -1188,11 +1198,17 @@ export function App() {
       </div>
       <AdvancedOptionsDialog
         open={showAdvancedOptions}
-        readOnly={store.activeSessionId !== null}
+        argsReadOnly={store.activeSessionId !== null}
         executableArgs={composeArgs}
         env={composeEnv}
         onSave={(args, env) => {
-          setComposeArgs(args)
+          if (store.activeSessionId) {
+            // In-session: apply env changes via SDK
+            send({ type: 'set_env', sessionId: store.activeSessionId, env })
+          } else {
+            // Compose view: just update local state
+            setComposeArgs(args)
+          }
           setComposeEnv(env)
         }}
         onClose={() => setShowAdvancedOptions(false)}
