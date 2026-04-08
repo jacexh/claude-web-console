@@ -537,7 +537,7 @@ export class SessionManager {
             } as unknown as SDKMessage))
           }
 
-          // Broadcast turn_started once per turn, before the first SDK message
+          // Set session status to running on first message of each turn
           if (shouldBroadcastTurnStarted(turnState)) {
             this.sessionStatus.set(sessionId, 'running')
           }

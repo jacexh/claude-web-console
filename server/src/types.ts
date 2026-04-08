@@ -277,6 +277,7 @@ export interface SessionStateMessage {
   sessionId: string
   model?: string
   effortLevel?: EffortLevel
+  status?: 'idle' | 'running' | 'stopped'
 }
 
 export interface SubagentMessagesMessage {
