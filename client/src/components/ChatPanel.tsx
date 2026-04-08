@@ -42,8 +42,10 @@ interface ChatPanelProps {
   onStopTask?: (sessionId: string, taskId: string) => void
   composeModel?: string
   composeEffort?: EffortLevel
+  composePermissionMode?: string
   onComposeSetModel?: (model: string) => void
   onComposeSetEffort?: (level: EffortLevel) => void
+  onComposeSetPermissionMode?: (mode: string) => void
   onComposeSend?: (content: string) => void
   onOpenAdvancedOptions?: () => void
   globalModels?: ModelInfo[]
@@ -63,7 +65,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel: _composeModel, composeEffort, onComposeSetModel, onComposeSetEffort, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel: _composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -418,6 +420,8 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             onSetModel={onComposeSetModel ?? (() => {})}
             effortLevel={composeEffort ?? 'medium'}
             onSetEffortLevel={onComposeSetEffort ?? (() => {})}
+            permissionMode={composePermissionMode ?? 'default'}
+            onSetPermissionMode={onComposeSetPermissionMode}
             onOpenSettings={onOpenAdvancedOptions}
           />
           <div className="flex items-end gap-2 border rounded-xl px-4 py-3 border-slate-200 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition-colors bg-white">

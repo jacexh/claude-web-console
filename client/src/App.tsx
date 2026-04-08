@@ -54,6 +54,7 @@ export function App() {
   const fileListCallbackRef = useRef<((files: FileEntry[]) => void) | null>(null)
   const [composeModel, setComposeModel] = useState('')
   const [composeEffort, setComposeEffort] = useState<EffortLevel>('medium')
+  const [composePermissionMode, setComposePermissionMode] = useState('default')
   const [composeArgs, setComposeArgs] = useState<string[]>([])
   const [composeEnv, setComposeEnv] = useState<Record<string, string>>({})
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
@@ -867,6 +868,7 @@ export function App() {
             message: content,
             ...(defaultCwd ? { cwd: defaultCwd } : {}),
             ...(composeModel ? { model: composeModel } : {}),
+            ...(composePermissionMode && composePermissionMode !== 'default' ? { permissionMode: composePermissionMode } : {}),
             ...(composeArgs.length ? { executableArgs: composeArgs } : {}),
             ...(Object.keys(composeEnv).length ? { env: composeEnv } : {}),
           }),
@@ -894,13 +896,14 @@ export function App() {
         // Reset compose state
         setComposeModel('')
         setComposeEffort('medium')
+        setComposePermissionMode('default')
         setComposeArgs([])
         setComposeEnv({})
       } catch (err) {
         console.error('Create session failed:', err)
       }
     },
-    [send, store, defaultCwd, composeModel, composeArgs, composeEnv],
+    [send, store, defaultCwd, composeModel, composePermissionMode, composeArgs, composeEnv],
   )
 
   const handleNewChat = useCallback(() => {
@@ -1154,8 +1157,10 @@ export function App() {
             onStopTask={handleStopTask}
             composeModel={composeModel}
             composeEffort={composeEffort}
+            composePermissionMode={composePermissionMode}
             onComposeSetModel={setComposeModel}
             onComposeSetEffort={setComposeEffort}
+            onComposeSetPermissionMode={setComposePermissionMode}
             onComposeSend={handleComposeSend}
             onOpenAdvancedOptions={() => setShowAdvancedOptions(true)}
             globalModels={globalModels}
