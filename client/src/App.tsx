@@ -929,7 +929,9 @@ export function App() {
     [send, store, currentProject, defaultCwd, composeModel, composePermissionMode, composeArgs, composeEnv],
   )
 
-  const handleNewChat = useCallback(() => {
+  const handleOpenDirectory = useCallback((cwd: string) => {
+    // Navigate to compose view for this directory
+    setCurrentProject(cwd)
     store.setActive(null)
   }, [store])
 
@@ -1141,7 +1143,7 @@ export function App() {
           sessions={store.sessions}
           activeSessionId={store.activeSessionId}
           onSelect={handleSwitchSession}
-          onNewChat={handleNewChat}
+          onOpenDirectory={handleOpenDirectory}
           connected={connected}
           onToggleCollapse={() => setSidebarCollapsed(true)}
           onClose={handleCloseSession}

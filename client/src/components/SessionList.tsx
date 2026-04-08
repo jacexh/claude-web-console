@@ -23,7 +23,7 @@ interface SessionListProps {
   sessions: SessionInfo[]
   activeSessionId: string | null
   onSelect: (sessionId: string) => void
-  onNewChat: () => void
+  onOpenDirectory: (cwd: string) => void
   connected: boolean
   onToggleCollapse: () => void
   onClose: (sessionId: string) => void
@@ -76,13 +76,16 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`
 }
 
-export function SessionList({ sessions, activeSessionId, onSelect, onNewChat, connected, onToggleCollapse, onClose, onRename, defaultCwd, onProjectChange }: SessionListProps) {
+export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirectory, connected, onToggleCollapse, onClose, onRename, defaultCwd, onProjectChange }: SessionListProps) {
   const [page, setPage] = useState(0)
   const [jumpId, setJumpId] = useState("")
   const [showJump, setShowJump] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState("")
   const editInputRef = useRef<HTMLInputElement>(null)
+  const [showDirInput, setShowDirInput] = useState(false)
+  const [dirPath, setDirPath] = useState("")
+  const dirInputRef = useRef<HTMLInputElement>(null)
 
   const [selectedProject, setSelectedProject] = useState<string | null>(() => {
     return localStorage.getItem(PROJECT_STORAGE_KEY)
@@ -237,13 +240,40 @@ export function SessionList({ sessions, activeSessionId, onSelect, onNewChat, co
           </div>
 
           <div className="px-4 pb-2 space-y-2">
-            <Button
-              onClick={() => onNewChat()}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Plus className="h-5 w-5" />
-              New Chat
-            </Button>
+            {showDirInput ? (
+              <form onSubmit={(e) => {
+                e.preventDefault()
+                const trimmed = dirPath.trim()
+                if (trimmed) {
+                  onOpenDirectory(trimmed)
+                  selectProject(trimmed)
+                  setDirPath('')
+                  setShowDirInput(false)
+                }
+              }} className="flex gap-1">
+                <input
+                  ref={dirInputRef}
+                  value={dirPath}
+                  onChange={(e) => setDirPath(e.target.value)}
+                  placeholder="/path/to/directory"
+                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                  autoFocus
+                  onBlur={() => { if (!dirPath.trim()) setShowDirInput(false) }}
+                  onKeyDown={(e) => { if (e.key === 'Escape') { setShowDirInput(false); setDirPath('') } }}
+                />
+                <Button type="submit" disabled={!dirPath.trim()} className="shrink-0 bg-primary text-white px-3 py-2 rounded-lg disabled:opacity-40">
+                  Go
+                </Button>
+              </form>
+            ) : (
+              <Button
+                onClick={() => setShowDirInput(true)}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm"
+              >
+                <FolderOpen className="h-5 w-5" />
+                Open Directory
+              </Button>
+            )}
 
             {/* Jump to session */}
             {showJump ? (
