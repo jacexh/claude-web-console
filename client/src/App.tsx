@@ -69,8 +69,6 @@ export function App() {
   ])
   // Track locally-sent user messages to deduplicate SDK echoes
   const sentMessagesRef = useRef<Set<string>>(new Set())
-  // Track cwd for pending session creation so we can attach it to the new session
-  const pendingSessionCwdRef = useRef<string | null>(null)
   // Buffer permission_requests that arrive before their tool_use sdk_message
   const pendingPermissionsRef = useRef<Map<string, { permission: Record<string, unknown>; sessionId: string }>>(new Map())
   // Map taskId → { sessionId, toolUseId } for fast lookup on progress/notification
@@ -96,12 +94,6 @@ export function App() {
           store.setSessions(data.sessions as SessionInfo[])
           break
 
-        case 'session_created': {
-          const cwd = pendingSessionCwdRef.current
-          pendingSessionCwdRef.current = null
-          store.addSession(data.sessionId as string, undefined, cwd ?? undefined)
-          break
-        }
 
         case 'sdk_message': {
           const sessionId = data.sessionId as string
@@ -785,8 +777,8 @@ export function App() {
           store.setActive(newSessionId)
           send({ type: 'switch_session', sessionId: newSessionId })
           send({ type: 'list_commands', sessionId: newSessionId })
-          // Auto-resume the forked session so the user can immediately start typing
-          send({ type: 'resume_session', sessionId: newSessionId })
+          // Fork creates a stopped session; user needs to explicitly resume or send a message
+          send({ type: 'switch_session', sessionId: newSessionId })
           break
         }
 
@@ -920,21 +912,35 @@ export function App() {
   }, [])
 
   const handleConfirmNewSession = useCallback(
-    (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => {
+    async (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => {
       setShowNewSessionDialog(false)
-      pendingSessionCwdRef.current = cwd
-      send({
-        type: 'create_session',
-        options: {
-          cwd,
-          ...(model ? { model } : {}),
-          ...(permissionMode ? { permissionMode } : {}),
-          ...(executableArgs?.length ? { executableArgs } : {}),
-          ...(env && Object.keys(env).length ? { env } : {}),
-        },
-      })
+      try {
+        const resp = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cwd,
+            ...(model ? { model } : {}),
+            ...(permissionMode ? { permissionMode } : {}),
+            ...(executableArgs?.length ? { executableArgs } : {}),
+            ...(env && Object.keys(env).length ? { env } : {}),
+          }),
+        })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: 'Failed to create session' }))
+          console.error('Create session failed:', err)
+          return
+        }
+        const data = await resp.json() as { sessionId: string; status: 'idle' | 'running' | 'stopped' }
+        // Initialize session with server-authoritative status
+        store.addSession(data.sessionId, data.status, cwd)
+        // Subscribe to WS for streaming updates
+        send({ type: 'switch_session', sessionId: data.sessionId })
+      } catch (err) {
+        console.error('Create session failed:', err)
+      }
     },
-    [send],
+    [send, store],
   )
 
   const handleSwitchSession = useCallback(
@@ -949,10 +955,23 @@ export function App() {
 
 
   const handleResumeSession = useCallback(
-    (sessionId: string) => {
-      send({ type: 'resume_session', sessionId })
+    async (sessionId: string) => {
+      try {
+        const resp = await fetch(`/api/sessions/${sessionId}/resume`, { method: 'POST' })
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: 'Failed to resume session' }))
+          console.error('Resume session failed:', err)
+          return
+        }
+        const data = await resp.json() as { sessionId: string; status: 'idle' | 'running' | 'stopped' }
+        store.setSessionStatus(sessionId, data.status)
+        // Subscribe to WS for streaming updates
+        send({ type: 'switch_session', sessionId })
+      } catch (err) {
+        console.error('Resume session failed:', err)
+      }
     },
-    [send],
+    [send, store],
   )
 
   const handleRenameSession = useCallback(
