@@ -58,6 +58,8 @@ export function App() {
   const [composeArgs, setComposeArgs] = useState<string[]>([])
   const [composeEnv, setComposeEnv] = useState<Record<string, string>>({})
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
+  const [argsBySession, setArgsBySession] = useState<Record<string, string[]>>({})
+  const [envBySession, setEnvBySession] = useState<Record<string, Record<string, string>>>({})
   const [defaultCwd, setDefaultCwd] = useState('')
   const [currentProject, setCurrentProject] = useState<string | null>(() => localStorage.getItem('cc-web-console:selectedProject'))
   const [statusBySession, setStatusBySession] = useState<Record<string, SessionStatusInfo>>({})
@@ -884,8 +886,21 @@ export function App() {
         const sessionCwd = currentProject || defaultCwd || undefined
         store.addSession(data.sessionId, data.status as 'idle' | 'running', sessionCwd)
 
-        // Subscribe to WS — session_history will provide the first message,
-        // and stream consumer will push the assistant response
+        // Add user message optimistically — this ensures hasLiveMessages=true
+        // when session_history arrives, preventing the empty history from wiping it
+        store.addChatItem(data.sessionId, {
+          id: uuid(),
+          type: 'user',
+          content,
+          timestamp: Date.now(),
+        })
+        sentMessagesRef.current.add(content)
+
+        // Save creation options for this session (AdvancedOptionsDialog reads from these)
+        setArgsBySession(prev => ({ ...prev, [data.sessionId]: composeArgs }))
+        setEnvBySession(prev => ({ ...prev, [data.sessionId]: composeEnv }))
+
+        // Subscribe to WS — listener will catch stream messages from this point
         send({ type: 'switch_session', sessionId: data.sessionId })
 
         // Reset compose state
@@ -1195,17 +1210,18 @@ export function App() {
       <AdvancedOptionsDialog
         open={showAdvancedOptions}
         argsReadOnly={store.activeSessionId !== null}
-        executableArgs={composeArgs}
-        env={composeEnv}
+        executableArgs={store.activeSessionId ? (argsBySession[store.activeSessionId] ?? []) : composeArgs}
+        env={store.activeSessionId ? (envBySession[store.activeSessionId] ?? {}) : composeEnv}
         onSave={(args, env) => {
           if (store.activeSessionId) {
-            // In-session: apply env changes via SDK
+            // In-session: apply env changes via SDK, update local cache
             send({ type: 'set_env', sessionId: store.activeSessionId, env })
+            setEnvBySession(prev => ({ ...prev, [store.activeSessionId!]: env }))
           } else {
-            // Compose view: just update local state
+            // Compose view: update local state
             setComposeArgs(args)
+            setComposeEnv(env)
           }
-          setComposeEnv(env)
         }}
         onClose={() => setShowAdvancedOptions(false)}
       />

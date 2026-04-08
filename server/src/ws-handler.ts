@@ -176,6 +176,10 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
           }
 
           case 'switch_session': {
+            // Subscribe FIRST so live stream messages are not lost while loading history.
+            // For new sessions, consumeStream is already running — registering early
+            // ensures we catch assistant response chunks during the getHistory() await.
+            sessionManager.subscribe(msg.sessionId, makeListener(msg.sessionId))
             // Load historical messages
             const history = await sessionManager.getHistory(msg.sessionId)
             send({ type: 'session_history', sessionId: msg.sessionId, messages: history })
@@ -184,8 +188,6 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             if (state.model || state.effortLevel) {
               send({ type: 'session_state', sessionId: msg.sessionId, ...state })
             }
-            // Subscribe for live updates if session is running
-            sessionManager.subscribe(msg.sessionId, makeListener(msg.sessionId))
             break
           }
 
