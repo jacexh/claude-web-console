@@ -338,6 +338,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             : Zap
           const pillStyle = data.icon === 'circle-x' ? 'bg-red-50 border-red-200 text-red-700'
             : data.icon === 'circle-check' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : data.icon === 'loader' ? 'bg-amber-50 border-amber-200 text-amber-700'
             : 'bg-[#f5f0ff] border-[#d4c5f9] text-violet-700'
           return (
             <div key={item.id} className="flex justify-center my-1.5 animate-[slideIn_0.3s_ease-out]">
