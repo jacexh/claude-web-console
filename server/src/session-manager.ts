@@ -600,6 +600,12 @@ export class SessionManager {
       throw new Error(`Session ${sessionId} does not support setPermissionMode`)
     }
     await query.setPermissionMode(mode)
+    // Persist so resume uses the updated permission mode
+    const opts = this.sessionCreationOptions.get(sessionId)
+    if (opts) {
+      opts.permissionMode = mode
+      saveSessionOptions(sessionId, opts)
+    }
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
       type: 'permission_mode_changed', sessionId, mode,
     } as unknown as SDKMessage))
@@ -615,6 +621,12 @@ export class SessionManager {
       throw new Error(`Session ${sessionId} does not support applyFlagSettings`)
     }
     await query.applyFlagSettings({ env })
+    // Persist so resume uses the updated env
+    const opts = this.sessionCreationOptions.get(sessionId)
+    if (opts) {
+      opts.env = env
+      saveSessionOptions(sessionId, opts)
+    }
   }
 
   getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel; status: 'idle' | 'running' | 'stopped' } {
