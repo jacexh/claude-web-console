@@ -108,6 +108,11 @@ export function App() {
           const msg = data.message as Record<string, unknown>
           const sdkType = msg.type as string
 
+          // Server broadcasts turn_started at the beginning of each SDK turn
+          if (sdkType === 'turn_started') {
+            break
+          }
+
           // Extract status info from SDK messages
           if (sdkType === 'system' && msg.subtype === 'init') {
             if (msg.model) {
@@ -419,9 +424,7 @@ export function App() {
               timestamp: Date.now(),
             }
             store.addChatItem(sessionId, item)
-            store.setLoading(sessionId, false)
           } else if (sdkType === 'result') {
-            store.setLoading(sessionId, false)
             // Accumulate cost and token usage
             const resultMsg = msg as Record<string, unknown>
             const usage = resultMsg.usage as Record<string, number> | undefined
@@ -1000,11 +1003,9 @@ export function App() {
       const trimmed = content.trim()
       const isCliCommand = cliCommands.some((cmd) => trimmed === cmd || trimmed.startsWith(cmd + ' '))
       if (isCliCommand) {
-        // Show immediate feedback, then auto-clear loading after timeout
-        store.setLoading(store.activeSessionId, true)
+        // Show immediate feedback after timeout
         const sid = store.activeSessionId
         setTimeout(() => {
-          store.setLoading(sid, false)
           store.addChatItem(sid, {
             id: uuid(),
             type: 'system',
@@ -1012,9 +1013,8 @@ export function App() {
             timestamp: Date.now(),
           })
         }, 2000)
-      } else {
-        store.setLoading(store.activeSessionId, true)
       }
+      // Loading state is now set by turn_started from server, not here
       send({ type: 'send_message', sessionId: store.activeSessionId, content })
     },
     [send, store],
@@ -1089,10 +1089,8 @@ export function App() {
   const history = store.activeSessionId
     ? store.historyBySession[store.activeSessionId] ?? []
     : []
-  const loading = store.activeSessionId
-    ? store.loadingBySession[store.activeSessionId] ?? false
-    : false
   const activeSession = store.sessions.find((s) => s.sessionId === store.activeSessionId)
+  const loading = activeSession?.status === 'running'
   const sessionStatus = store.activeSessionId
     ? statusBySession[store.activeSessionId] ?? {}
     : {}

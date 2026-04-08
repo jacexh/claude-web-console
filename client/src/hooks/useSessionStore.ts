@@ -6,7 +6,6 @@ interface SessionState {
   activeSessionId: string | null
   messagesBySession: Record<string, ChatItem[]>
   historyBySession: Record<string, ChatItem[]>
-  loadingBySession: Record<string, boolean>
 }
 
 type SessionAction =
@@ -18,7 +17,7 @@ type SessionAction =
   | { type: 'SESSION_END'; sessionId: string }
   | { type: 'SET_HISTORY_ITEMS'; sessionId: string; items: ChatItem[] }
   | { type: 'REMAP_SESSION'; tempId: string; sessionId: string }
-  | { type: 'SET_LOADING'; sessionId: string; loading: boolean }
+
   | { type: 'REMOVE_SESSION'; sessionId: string }
   | { type: 'SET_SESSION_STATUS'; sessionId: string; status: 'idle' | 'running' | 'stopped' }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
@@ -101,18 +100,12 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         newHistory[sessionId] = newHistory[tempId]
         delete newHistory[tempId]
       }
-      const newLoading = { ...state.loadingBySession }
-      if (tempId in newLoading) {
-        newLoading[sessionId] = newLoading[tempId]
-        delete newLoading[tempId]
-      }
       return {
         ...state,
         sessions: newSessions,
         activeSessionId: state.activeSessionId === tempId ? sessionId : state.activeSessionId,
         messagesBySession: newMessages,
         historyBySession: newHistory,
-        loadingBySession: newLoading,
       }
     }
 
@@ -130,25 +123,12 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         },
       }
 
-    case 'SET_LOADING':
-      return {
-        ...state,
-        loadingBySession: {
-          ...state.loadingBySession,
-          [action.sessionId]: action.loading,
-        },
-      }
-
     case 'SESSION_END': {
       return {
         ...state,
         sessions: state.sessions.map((s) =>
           s.sessionId === action.sessionId ? { ...s, status: 'stopped' as const } : s,
         ),
-        loadingBySession: {
-          ...state.loadingBySession,
-          [action.sessionId]: false,
-        },
       }
     }
 
@@ -158,15 +138,12 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
       delete newMessages[action.sessionId]
       const newHistory = { ...state.historyBySession }
       delete newHistory[action.sessionId]
-      const newLoading = { ...state.loadingBySession }
-      delete newLoading[action.sessionId]
       return {
         ...state,
         sessions: newSessions,
         activeSessionId: state.activeSessionId === action.sessionId ? null : state.activeSessionId,
         messagesBySession: newMessages,
         historyBySession: newHistory,
-        loadingBySession: newLoading,
       }
     }
 
@@ -198,7 +175,6 @@ const initialState: SessionState = {
   activeSessionId: null,
   messagesBySession: {},
   historyBySession: {},
-  loadingBySession: {},
 }
 
 export function useSessionStore() {
@@ -232,10 +208,6 @@ export function useSessionStore() {
     dispatch({ type: 'SET_HISTORY_ITEMS', sessionId, items })
   }, [])
 
-  const setLoading = useCallback((sessionId: string, loading: boolean) => {
-    dispatch({ type: 'SET_LOADING', sessionId, loading })
-  }, [])
-
   const sessionEnd = useCallback((sessionId: string) => {
     dispatch({ type: 'SESSION_END', sessionId })
   }, [])
@@ -261,7 +233,6 @@ export function useSessionStore() {
     updateChatItem,
     remapSession,
     setHistoryItems,
-    setLoading,
     sessionEnd,
     removeSession,
     setSessionStatus,
