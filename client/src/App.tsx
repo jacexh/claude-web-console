@@ -59,6 +59,7 @@ export function App() {
   const [composeEnv, setComposeEnv] = useState<Record<string, string>>({})
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
   const [defaultCwd, setDefaultCwd] = useState('')
+  const [currentProject, setCurrentProject] = useState<string | null>(() => localStorage.getItem('cc-web-console:selectedProject'))
   const [statusBySession, setStatusBySession] = useState<Record<string, SessionStatusInfo>>({})
   const [modelsBySession, setModelsBySession] = useState<Record<string, ModelInfo[]>>({})
   const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
@@ -866,7 +867,7 @@ export function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: content,
-            ...(defaultCwd ? { cwd: defaultCwd } : {}),
+            cwd: currentProject || defaultCwd || undefined,
             ...(composeModel ? { model: composeModel } : {}),
             ...(composePermissionMode && composePermissionMode !== 'default' ? { permissionMode: composePermissionMode } : {}),
             ...(composeArgs.length ? { executableArgs: composeArgs } : {}),
@@ -880,7 +881,8 @@ export function App() {
         }
         const data = await resp.json() as { sessionId: string; status: 'idle' | 'running' | 'stopped' }
 
-        store.addSession(data.sessionId, data.status as 'idle' | 'running', defaultCwd || undefined)
+        const sessionCwd = currentProject || defaultCwd || undefined
+        store.addSession(data.sessionId, data.status as 'idle' | 'running', sessionCwd)
 
         // Subscribe to WS — session_history will provide the first message,
         // and stream consumer will push the assistant response
@@ -896,7 +898,7 @@ export function App() {
         console.error('Create session failed:', err)
       }
     },
-    [send, store, defaultCwd, composeModel, composePermissionMode, composeArgs, composeEnv],
+    [send, store, currentProject, defaultCwd, composeModel, composePermissionMode, composeArgs, composeEnv],
   )
 
   const handleNewChat = useCallback(() => {
@@ -1118,6 +1120,7 @@ export function App() {
           onClose={handleCloseSession}
           onRename={handleRenameSession}
           defaultCwd={defaultCwd}
+          onProjectChange={setCurrentProject}
         />
       </div>
       {!sidebarCollapsed && (

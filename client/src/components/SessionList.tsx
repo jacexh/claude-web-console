@@ -29,6 +29,7 @@ interface SessionListProps {
   onClose: (sessionId: string) => void
   onRename: (sessionId: string, title: string) => void
   defaultCwd: string
+  onProjectChange?: (cwd: string | null) => void
 }
 
 /** Extract the last directory name from a path for display */
@@ -75,7 +76,7 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`
 }
 
-export function SessionList({ sessions, activeSessionId, onSelect, onNewChat, connected, onToggleCollapse, onClose, onRename, defaultCwd }: SessionListProps) {
+export function SessionList({ sessions, activeSessionId, onSelect, onNewChat, connected, onToggleCollapse, onClose, onRename, defaultCwd, onProjectChange }: SessionListProps) {
   const [page, setPage] = useState(0)
   const [jumpId, setJumpId] = useState("")
   const [showJump, setShowJump] = useState(false)
@@ -112,6 +113,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onNewChat, co
     if (cwd) localStorage.setItem(PROJECT_STORAGE_KEY, cwd)
     else localStorage.removeItem(PROJECT_STORAGE_KEY)
     setPage(0)
+    onProjectChange?.(cwd)
   }
 
   // Filtered sessions for Mode B
