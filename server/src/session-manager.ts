@@ -390,9 +390,9 @@ export class SessionManager {
     // For new sessions, start stream immediately — SDK may emit init messages
     this.startStreamConsumer(tempId, session)
 
-    // Poll session.sessionId directly — don't depend on consumeStream remap timing
-    const sessionId = await waitForSessionId(session, 30_000)
-    return sessionId
+    // SDK requires send() before sessionId is available.
+    // Return tempId now; real sessionId arrives via session_id_resolved WS event after first send().
+    return tempId
   }
 
   private fetchAndBroadcastModels(sessionId: string, session: SDKSession, currentModel?: string): void {
