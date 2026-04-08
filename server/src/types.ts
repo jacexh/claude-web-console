@@ -173,12 +173,6 @@ export interface SessionHistoryMessage {
   messages: unknown[]
 }
 
-export interface SessionIdResolvedMessage {
-  type: 'session_id_resolved'
-  tempId: string
-  sessionId: string
-}
-
 export interface FileListMessage {
   type: 'file_list'
   files: FileEntry[]
@@ -293,7 +287,6 @@ export type ServerMessage =
   | ErrorMessage
   | SessionEndMessage
   | SessionHistoryMessage
-  | SessionIdResolvedMessage
   | FileListMessage
   | DefaultCwdMessage
   | CommandListMessage
