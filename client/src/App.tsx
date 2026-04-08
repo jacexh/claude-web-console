@@ -76,6 +76,8 @@ export function App() {
   ])
   // Track locally-sent user messages to deduplicate SDK echoes
   const sentMessagesRef = useRef<Set<string>>(new Set())
+  // Sessions created in this tab — skip session_history to preserve optimistic user message
+  const newSessionIdsRef = useRef<Set<string>>(new Set())
   // Buffer permission_requests that arrive before their tool_use sdk_message
   const pendingPermissionsRef = useRef<Map<string, { permission: Record<string, unknown>; sessionId: string }>>(new Map())
   // Map taskId → { sessionId, toolUseId } for fast lookup on progress/notification
@@ -646,7 +648,14 @@ export function App() {
           // duplicate content and show a misleading "previous messages" divider.
           // For other clients (User B) or after page refresh, messagesBySession
           // is empty, so history loads normally.
-          const hasLiveMessages = (store.messagesBySession[sessionId] ?? []).length > 0
+          // Skip history for sessions just created in this tab (optimistic user message
+          // is in messagesBySession but React state may not have flushed yet).
+          // Also skip if live messages already exist (multi-client / reconnect case).
+          const isNewSession = newSessionIdsRef.current.has(sessionId)
+          if (isNewSession) {
+            newSessionIdsRef.current.delete(sessionId)
+          }
+          const hasLiveMessages = isNewSession || (store.messagesBySession[sessionId] ?? []).length > 0
           if (!hasLiveMessages) {
             store.setHistoryItems(sessionId, items)
             // Merge subagent history into subagentMessages state
@@ -870,8 +879,9 @@ export function App() {
           body: JSON.stringify({
             message: content,
             cwd: currentProject || defaultCwd || undefined,
-            ...(composeModel ? { model: composeModel } : {}),
-            ...(composePermissionMode && composePermissionMode !== 'default' ? { permissionMode: composePermissionMode } : {}),
+            model: composeModel || undefined,
+            permissionMode: composePermissionMode || 'default',
+            effortLevel: composeEffort || 'medium',
             ...(composeArgs.length ? { executableArgs: composeArgs } : {}),
             ...(Object.keys(composeEnv).length ? { env: composeEnv } : {}),
           }),
@@ -895,6 +905,9 @@ export function App() {
           timestamp: Date.now(),
         })
         sentMessagesRef.current.add(content)
+        // Mark as new session SYNCHRONOUSLY (Ref, not state) so session_history
+        // handler can detect it regardless of React render timing
+        newSessionIdsRef.current.add(data.sessionId)
 
         // Save creation options for this session (AdvancedOptionsDialog reads from these)
         setArgsBySession(prev => ({ ...prev, [data.sessionId]: composeArgs }))

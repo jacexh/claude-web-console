@@ -349,7 +349,7 @@ export class SessionManager {
   }
 
   async createSession(
-    options: { message: string; cwd?: string; model?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> },
+    options: { message: string; cwd?: string; model?: string; permissionMode?: string; effortLevel?: EffortLevel; executableArgs?: string[]; env?: Record<string, string> },
   ): Promise<string> {
     const cwd = options.cwd ?? process.env.CC_WEB_CONSOLE_CWD ?? process.env.HOME ?? '/'
     const sessionIdRef = { current: '' }
@@ -414,6 +414,13 @@ export class SessionManager {
     this.sessionCwds.set(sessionId, cwd)
     this.sessionCreationOptions.set(sessionId, opts)
     saveSessionOptions(sessionId, opts)
+
+    // Apply effort level after session is running (SDK doesn't accept it in SDKSessionOptions)
+    if (options.effortLevel) {
+      this.setEffortLevel(sessionId, options.effortLevel).catch((err) => {
+        this.log.error({ err, sessionId }, 'Failed to set initial effort level')
+      })
+    }
 
     return sessionId
   }

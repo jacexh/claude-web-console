@@ -9,6 +9,7 @@ export function registerHttpRoutes(app: FastifyInstance, sessionManager: Session
       cwd?: string
       model?: string
       permissionMode?: string
+      effortLevel?: string
       executableArgs?: string[]
       env?: Record<string, string>
     } | null
@@ -24,7 +25,7 @@ export function registerHttpRoutes(app: FastifyInstance, sessionManager: Session
         await mkdir(cwd, { recursive: true })
       }
 
-      const sessionId = await sessionManager.createSession(body as { message: string; cwd?: string; model?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> })
+      const sessionId = await sessionManager.createSession(body as Parameters<typeof sessionManager.createSession>[0])
       const status = sessionManager.getSessionStatus(sessionId)
 
       reply.code(201).send({ sessionId, status })
