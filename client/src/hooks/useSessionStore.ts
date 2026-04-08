@@ -14,7 +14,6 @@ type SessionAction =
   | { type: 'ADD_SESSION'; sessionId: string; status?: 'idle' | 'running'; cwd?: string; summary?: string }
   | { type: 'ADD_CHAT_ITEM'; sessionId: string; item: ChatItem }
   | { type: 'UPDATE_CHAT_ITEM'; sessionId: string; itemId: string; updates: Partial<ChatItem> }
-  | { type: 'SESSION_END'; sessionId: string }
   | { type: 'SET_HISTORY_ITEMS'; sessionId: string; items: ChatItem[] }
   | { type: 'REMAP_SESSION'; tempId: string; sessionId: string }
 
@@ -123,15 +122,6 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         },
       }
 
-    case 'SESSION_END': {
-      return {
-        ...state,
-        sessions: state.sessions.map((s) =>
-          s.sessionId === action.sessionId ? { ...s, status: 'stopped' as const } : s,
-        ),
-      }
-    }
-
     case 'REMOVE_SESSION': {
       const newSessions = state.sessions.filter((s) => s.sessionId !== action.sessionId)
       const newMessages = { ...state.messagesBySession }
@@ -208,10 +198,6 @@ export function useSessionStore() {
     dispatch({ type: 'SET_HISTORY_ITEMS', sessionId, items })
   }, [])
 
-  const sessionEnd = useCallback((sessionId: string) => {
-    dispatch({ type: 'SESSION_END', sessionId })
-  }, [])
-
   const removeSession = useCallback((sessionId: string) => {
     dispatch({ type: 'REMOVE_SESSION', sessionId })
   }, [])
@@ -233,7 +219,6 @@ export function useSessionStore() {
     updateChatItem,
     remapSession,
     setHistoryItems,
-    sessionEnd,
     removeSession,
     setSessionStatus,
     renameSession,

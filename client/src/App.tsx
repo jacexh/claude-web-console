@@ -108,11 +108,6 @@ export function App() {
           const msg = data.message as Record<string, unknown>
           const sdkType = msg.type as string
 
-          // Server broadcasts turn_started at the beginning of each SDK turn
-          if (sdkType === 'turn_started') {
-            break
-          }
-
           // Extract status info from SDK messages
           if (sdkType === 'system' && msg.subtype === 'init') {
             if (msg.model) {
@@ -717,7 +712,7 @@ export function App() {
           break
 
         case 'session_resumed':
-          store.setSessionStatus(data.sessionId as string, 'running')
+          store.setSessionStatus(data.sessionId as string, 'idle')
           break
 
         case 'permission_decided': {
@@ -750,9 +745,15 @@ export function App() {
           break
         }
 
+        case 'session_status': {
+          const sid = data.sessionId as string
+          const status = data.status as 'idle' | 'running' | 'stopped'
+          store.setSessionStatus(sid, status)
+          break
+        }
+
         case 'session_end':
-          store.setSessionStatus(data.sessionId as string, 'idle')
-          store.sessionEnd(data.sessionId as string)
+          store.setSessionStatus(data.sessionId as string, 'stopped')
           break
 
         case 'file_list':
@@ -804,6 +805,9 @@ export function App() {
           }
           if (data.effortLevel) {
             setEffortBySession((prev) => ({ ...prev, [sid]: data.effortLevel as EffortLevel }))
+          }
+          if (data.status) {
+            store.setSessionStatus(sid, data.status as 'idle' | 'running' | 'stopped')
           }
           break
         }
@@ -1003,9 +1007,10 @@ export function App() {
       const trimmed = content.trim()
       const isCliCommand = cliCommands.some((cmd) => trimmed === cmd || trimmed.startsWith(cmd + ' '))
       if (isCliCommand) {
-        // Show immediate feedback after timeout
+        store.setSessionStatus(store.activeSessionId, 'running')
         const sid = store.activeSessionId
         setTimeout(() => {
+          store.setSessionStatus(sid, 'idle')
           store.addChatItem(sid, {
             id: uuid(),
             type: 'system',
@@ -1013,8 +1018,10 @@ export function App() {
             timestamp: Date.now(),
           })
         }, 2000)
+      } else {
+        // Optimistic freeze — server's session_status will confirm/correct
+        store.setSessionStatus(store.activeSessionId, 'running')
       }
-      // Loading state is now set by turn_started from server, not here
       send({ type: 'send_message', sessionId: store.activeSessionId, content })
     },
     [send, store],
