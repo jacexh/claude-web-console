@@ -398,9 +398,9 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
 
   if (!activeSessionId) {
     return (
-      <div className="h-full flex flex-col min-w-0 bg-white">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-5 text-center px-8">
+      <div className="h-full flex flex-col items-center justify-center min-w-0 bg-white px-8">
+        <div className="w-full max-w-2xl">
+          <div className="flex flex-col items-center gap-5 text-center mb-8">
             <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center shadow-soft">
               <MessageSquare className="h-7 w-7 text-white" />
             </div>
@@ -411,51 +411,47 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
               </p>
             </div>
           </div>
-        </div>
-        <div className="shrink-0 bg-white border-t border-slate-100 p-4">
-          <div className="max-w-4xl mx-auto">
-            <StatusBar
-              status={{}}
-              loading={false}
-              availableModels={globalModels ?? []}
-              onSetModel={onComposeSetModel ?? (() => {})}
-              effortLevel={composeEffort ?? 'medium'}
-              onSetEffortLevel={onComposeSetEffort ?? (() => {})}
-              onOpenSettings={onOpenAdvancedOptions}
-            />
-            <div className="flex items-end gap-2 border rounded-xl px-4 py-3 border-slate-200 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition-colors bg-white">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    const trimmed = input.trim()
-                    if (trimmed) {
-                      onComposeSend?.(trimmed)
-                      setInput('')
-                    }
-                  }
-                }}
-                placeholder="Send a message to start a new session..."
-                rows={1}
-                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
-              />
-              <button
-                onClick={() => {
+          <StatusBar
+            status={{ model: (globalModels ?? [])[0]?.value }}
+            loading={false}
+            availableModels={globalModels ?? []}
+            onSetModel={onComposeSetModel ?? (() => {})}
+            effortLevel={composeEffort ?? 'medium'}
+            onSetEffortLevel={onComposeSetEffort ?? (() => {})}
+            onOpenSettings={onOpenAdvancedOptions}
+          />
+          <div className="flex items-end gap-2 border rounded-xl px-4 py-3 border-slate-200 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition-colors bg-white">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
                   const trimmed = input.trim()
                   if (trimmed) {
                     onComposeSend?.(trimmed)
                     setInput('')
                   }
-                }}
-                disabled={!input.trim()}
-                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white disabled:opacity-40 hover:bg-primary/90 transition-colors"
-              >
-                <ArrowUp className="w-4 h-4" />
-              </button>
-            </div>
+                }
+              }}
+              placeholder="Send a message to start a new session..."
+              rows={1}
+              className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            <button
+              onClick={() => {
+                const trimmed = input.trim()
+                if (trimmed) {
+                  onComposeSend?.(trimmed)
+                  setInput('')
+                }
+              }}
+              disabled={!input.trim()}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white disabled:opacity-40 hover:bg-primary/90 transition-colors"
+            >
+              <ArrowUp className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>

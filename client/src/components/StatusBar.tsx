@@ -39,8 +39,6 @@ export function StatusBar({ status, loading, availableModels, onSetModel, effort
   const { model, totalCost, inputTokens, outputTokens, cacheReadTokens } = status
   const hasTokens = (inputTokens ?? 0) > 0 || (outputTokens ?? 0) > 0
 
-  if (!model && !hasTokens && totalCost == null) return null
-
   // Ensure current model appears in the option list
   const modelInList = model && availableModels.some((m) => m.value === model)
   const options = modelInList || !model
