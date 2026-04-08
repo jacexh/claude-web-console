@@ -152,7 +152,7 @@ export interface SessionInfo {
   sessionId: string
   summary: string
   lastModified: number
-  status: 'idle' | 'running'
+  status: 'idle' | 'running' | 'stopped'
   cwd?: string
 }
 

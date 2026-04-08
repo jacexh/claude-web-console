@@ -20,7 +20,7 @@ type SessionAction =
   | { type: 'REMAP_SESSION'; tempId: string; sessionId: string }
   | { type: 'SET_LOADING'; sessionId: string; loading: boolean }
   | { type: 'REMOVE_SESSION'; sessionId: string }
-  | { type: 'SET_SESSION_STATUS'; sessionId: string; status: 'idle' | 'running' }
+  | { type: 'SET_SESSION_STATUS'; sessionId: string; status: 'idle' | 'running' | 'stopped' }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
 
 function reducer(state: SessionState, action: SessionAction): SessionState {
@@ -143,7 +143,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
       return {
         ...state,
         sessions: state.sessions.map((s) =>
-          s.sessionId === action.sessionId ? { ...s, status: 'idle' as const } : s,
+          s.sessionId === action.sessionId ? { ...s, status: 'stopped' as const } : s,
         ),
         loadingBySession: {
           ...state.loadingBySession,
@@ -244,7 +244,7 @@ export function useSessionStore() {
     dispatch({ type: 'REMOVE_SESSION', sessionId })
   }, [])
 
-  const setSessionStatus = useCallback((sessionId: string, status: 'idle' | 'running') => {
+  const setSessionStatus = useCallback((sessionId: string, status: 'idle' | 'running' | 'stopped') => {
     dispatch({ type: 'SET_SESSION_STATUS', sessionId, status })
   }, [])
 
