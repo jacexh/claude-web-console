@@ -17,7 +17,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
-import { shouldBroadcastTurnStarted, type TurnState } from './turn-lifecycle.js'
+import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, isTurnMessage, type TurnState } from './turn-lifecycle.js'
 import { SessionStatusTracker } from './session-status.js'
 import { waitForSessionId } from './session-id-resolver.js'
 
@@ -520,7 +520,7 @@ export class SessionManager {
             this.sessionStatus.set(sid, 'idle')
           }
 
-          if (shouldBroadcastTurnStarted(turnState)) {
+          if (isTurnMessage(msgAny) && shouldBroadcastTurnStarted(turnState)) {
             this.sessionStatus.set(sid, 'running')
           }
           this.broadcast(sid, (l) => l.onMessage(sid, msg))
@@ -528,6 +528,11 @@ export class SessionManager {
         const sid = getId()
         this.log.info({ sessionId: sid }, 'consumeStream: stream() ended (turn complete)')
         if (this.closedSessionIds.has(sid)) break
+        // If stream ended without a result (e.g. control message like setModel response),
+        // reset status back to idle so the client isn't stuck in 'running'
+        if (shouldResetToIdleOnStreamEnd(this.sessionStatus.get(sid))) {
+          this.sessionStatus.set(sid, 'idle')
+        }
         // Wait briefly before re-entering stream() for next turn
         await new Promise((r) => setTimeout(r, 50))
       }

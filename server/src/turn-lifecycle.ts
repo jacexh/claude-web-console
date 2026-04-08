@@ -8,3 +8,17 @@ export function shouldBroadcastTurnStarted(state: TurnState): boolean {
   state.turnStarted = true
   return true
 }
+
+/** Returns true if status should be reset to idle when a stream ends without a result. */
+export function shouldResetToIdleOnStreamEnd(currentStatus: string): boolean {
+  return currentStatus === 'running'
+}
+
+/**
+ * Returns true if this SDK message is part of an active turn (not session init
+ * or a control response like setModel/applyFlagSettings).
+ */
+export function isTurnMessage(msg: Record<string, unknown>): boolean {
+  if (msg.type === 'system' && msg.subtype === 'init') return false
+  return true
+}
