@@ -12,7 +12,7 @@ import type { FileEntry } from './components/FileMention'
 import { NewSessionDialog } from './components/NewSessionDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
 import { SettingsModal } from './components/SettingsModal'
-import type { TaskStartedData, TaskProgressData, TaskNotificationData } from './lib/task-message-handler'
+import { isTopLevelTaskEvent, parseTaskNotificationXml, type TaskStartedData, type TaskProgressData, type TaskNotificationData } from './lib/task-message-handler'
 
 function uuid(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -114,7 +114,8 @@ export function App() {
           }
 
           // Handle background task messages — render as status lines in chat
-          if (sdkType === 'system' && msg.subtype === 'task_started') {
+          // Only render top-level task events; skip those nested in foreground subagents
+          if (sdkType === 'system' && msg.subtype === 'task_started' && isTopLevelTaskEvent(msg)) {
             const data = msg as unknown as TaskStartedData & { subtype: string; type: string }
             if (data.tool_use_id) {
               taskMapRef.current.set(data.task_id, { sessionId, toolUseId: data.tool_use_id, description: data.description })
@@ -133,7 +134,7 @@ export function App() {
             break
           }
 
-          if (sdkType === 'system' && msg.subtype === 'task_progress') {
+          if (sdkType === 'system' && msg.subtype === 'task_progress' && isTopLevelTaskEvent(msg)) {
             const data = msg as unknown as TaskProgressData & { subtype: string; type: string }
             const entry = taskMapRef.current.get(data.task_id)
             const name = entry?.description ?? data.description
@@ -149,7 +150,7 @@ export function App() {
             break
           }
 
-          if (sdkType === 'system' && msg.subtype === 'task_notification') {
+          if (sdkType === 'system' && msg.subtype === 'task_notification' && isTopLevelTaskEvent(msg)) {
             const data = msg as unknown as TaskNotificationData & { subtype: string; type: string }
             const entry = taskMapRef.current.get(data.task_id)
             const name = entry?.description ?? data.task_id
@@ -500,13 +501,8 @@ export function App() {
               const content = message.content
               if (!parentId && typeof content === 'string') {
                 // Parse task notifications → status line
-                const taskMatch = content.match(/<task-notification>([\s\S]*?)<\/task-notification>/)
-                if (taskMatch) {
-                  const block = taskMatch[1]
-                  const nStatus = block.match(/<status>(.*?)<\/status>/)?.[1] ?? ''
-                  const nSummary = block.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
-                  const isFailed = nStatus === 'failed' || nStatus === 'stopped'
-                  // Try to find the agent name from a preceding started status line
+                const parsed = parseTaskNotificationXml(content)
+                if (parsed) {
                   const startedLine = [...items].reverse().find(it =>
                     it.type === 'system' && (it.content as Record<string, unknown>)?.emoji === '🚀'
                   )
@@ -514,7 +510,7 @@ export function App() {
                   items.push({
                     id: uuid(),
                     type: 'system',
-                    content: { emoji: isFailed ? '❌' : '✅', name, summary: nSummary },
+                    content: { emoji: parsed.isFailed ? '❌' : '✅', name, summary: parsed.summary },
                     timestamp: 0,
                   })
                 } else {
@@ -530,12 +526,8 @@ export function App() {
                   if (block.type === 'text' && !parentId) {
                     const blockText = block.text as string
                     // Parse task notifications from text blocks → status line
-                    const taskMatch = blockText.match(/<task-notification>([\s\S]*?)<\/task-notification>/)
-                    if (taskMatch) {
-                      const tb = taskMatch[1]
-                      const nStatus = tb.match(/<status>(.*?)<\/status>/)?.[1] ?? ''
-                      const nSummary = tb.match(/<summary>(.*?)<\/summary>/)?.[1] ?? ''
-                      const isFailed = nStatus === 'failed' || nStatus === 'stopped'
+                    const parsed = parseTaskNotificationXml(blockText)
+                    if (parsed) {
                       const startedLine = [...items].reverse().find(it =>
                         it.type === 'system' && (it.content as Record<string, unknown>)?.emoji === '🚀'
                       )
@@ -543,7 +535,7 @@ export function App() {
                       items.push({
                         id: uuid(),
                         type: 'system',
-                        content: { emoji: isFailed ? '❌' : '✅', name, summary: nSummary },
+                        content: { emoji: parsed.isFailed ? '❌' : '✅', name, summary: parsed.summary },
                         timestamp: 0,
                       })
                       continue
