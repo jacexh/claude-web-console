@@ -67,7 +67,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, permissionMode, onSetPermissionMode, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel: _composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, permissionMode, onSetPermissionMode, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -416,7 +416,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
             </div>
           </div>
           <StatusBar
-            status={{ model: (globalModels ?? [])[0]?.value }}
+            status={{ model: composeModel || (globalModels ?? [])[0]?.value }}
             loading={false}
             availableModels={globalModels ?? []}
             onSetModel={onComposeSetModel ?? (() => {})}
