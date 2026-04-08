@@ -204,6 +204,8 @@ export function App() {
                 if (block.type === 'tool_result') {
                   const toolUseId = block.tool_use_id as string
                   const cleaned = cleanToolResult(block.content)
+                  const rawDisplay = block.display
+                  const displayHint: ChatItem['display'] = rawDisplay === 'summarized' || rawDisplay === 'omitted' ? rawDisplay : undefined
                   // Check if this is the Agent tool's own result (toolUseId === parentToolUseId)
                   // or a result for a tool inside the subagent
                   if (toolUseId === parentToolUseId) {
@@ -211,6 +213,7 @@ export function App() {
                     store.updateChatItem(sessionId, toolUseId, {
                       content: { result: cleaned.result },
                       ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}),
+                      ...(displayHint ? { display: displayHint } : {}),
                     })
                   } else {
                     // Result for a tool inside the subagent
@@ -221,7 +224,7 @@ export function App() {
                         ...prev,
                         [key]: items.map(it =>
                           it.id === toolUseId
-                            ? { ...it, content: { ...(it.content as Record<string, unknown>), result: cleaned.result }, ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}) }
+                            ? { ...it, content: { ...(it.content as Record<string, unknown>), result: cleaned.result }, ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}), ...(displayHint ? { display: displayHint } : {}) }
                             : it
                         ),
                       }
@@ -320,9 +323,12 @@ export function App() {
                   continue
                 }
                 const cleaned = cleanToolResult(block.content)
+                const rawDisplay = block.display
+                const displayHint: ChatItem['display'] = rawDisplay === 'summarized' || rawDisplay === 'omitted' ? rawDisplay : undefined
                 store.updateChatItem(sessionId, toolUseId, {
                   content: { result: cleaned.result },
                   ...(cleaned.systemTags.length > 0 ? { systemTags: cleaned.systemTags } : {}),
+                  ...(displayHint ? { display: displayHint } : {}),
                 })
               }
             }
@@ -558,6 +564,9 @@ export function App() {
                       const cleaned = cleanToolResult(block.content)
                       toolItem.content = { ...existing, result: cleaned.result }
                       if (cleaned.systemTags.length > 0) toolItem.systemTags = cleaned.systemTags
+                      const rawDisplay = block.display
+                      const displayHint: ChatItem['display'] = rawDisplay === 'summarized' || rawDisplay === 'omitted' ? rawDisplay : undefined
+                      if (displayHint) toolItem.display = displayHint
                     }
                   }
                 }
@@ -762,6 +771,9 @@ export function App() {
                   const cleaned = cleanToolResult(block.content)
                   existing.content = { ...(existing.content as Record<string, unknown>), result: cleaned.result }
                   if (cleaned.systemTags.length > 0) existing.systemTags = cleaned.systemTags
+                  const rawDisplay = block.display
+                  const displayHint: ChatItem['display'] = rawDisplay === 'summarized' || rawDisplay === 'omitted' ? rawDisplay : undefined
+                  if (displayHint) existing.display = displayHint
                 }
               }
             }

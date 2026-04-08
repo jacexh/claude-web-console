@@ -214,6 +214,8 @@ export interface ChatItem {
   resolved?: boolean
   resolvedAction?: string
   systemTags?: string[]
+  /** SDK 0.2.94: tool result display hint */
+  display?: 'summarized' | 'omitted'
   // Background task fields
   taskId?: string
   taskStatus?: 'running' | 'completed' | 'failed' | 'stopped'
