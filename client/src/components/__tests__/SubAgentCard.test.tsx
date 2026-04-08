@@ -166,7 +166,7 @@ describe('SubAgentCard renderItem', () => {
       {
         id: 'sys-1',
         type: 'system',
-        content: { emoji: '🚀', name: 'Background agent', summary: 'started' },
+        content: { icon: 'zap', name: 'Background agent', summary: 'started' },
         timestamp: 0,
       } as ChatItem,
       { id: 'a1', type: 'assistant', content: 'visible text', timestamp: 0 },

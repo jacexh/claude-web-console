@@ -130,7 +130,7 @@ export function App() {
               store.addChatItem(sessionId, {
                 id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
                 type: 'system',
-                content: { emoji: '🚀', name, summary: 'started' },
+                content: { icon: 'zap', name, summary: 'started' },
                 timestamp: Date.now(),
               })
             } else if (route?.target === 'update-subagent-card') {
@@ -145,7 +145,7 @@ export function App() {
                 [key]: [...(prev[key] ?? []), {
                   id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
                   type: 'system' as const,
-                  content: { emoji: '🚀', name: data.description, summary: 'started' },
+                  content: { icon: 'zap', name: data.description, summary: 'started' },
                   timestamp: Date.now(),
                 }],
               }))
@@ -166,7 +166,7 @@ export function App() {
               store.addChatItem(sessionId, {
                 id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
                 type: 'system',
-                content: { emoji: '⏳', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
+                content: { icon: 'loader', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
                 timestamp: Date.now(),
               })
             } else if (route?.target === 'update-subagent-card') {
@@ -189,7 +189,7 @@ export function App() {
                 [key]: [...(prev[key] ?? []), {
                   id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
                   type: 'system' as const,
-                  content: { emoji: '⏳', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
+                  content: { icon: 'loader', name, summary: `${tokens} tokens · ${tools} tools · ${secs}s` },
                   timestamp: Date.now(),
                 }],
               }))
@@ -208,7 +208,7 @@ export function App() {
               store.addChatItem(sessionId, {
                 id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
                 type: 'system',
-                content: { emoji: isFailed ? '❌' : '✅', name, summary: data.summary },
+                content: { icon: isFailed ? 'circle-x' : 'circle-check', name, summary: data.summary },
                 timestamp: Date.now(),
               })
             } else if (route?.target === 'update-subagent-card') {
@@ -230,7 +230,7 @@ export function App() {
                 [key]: [...(prev[key] ?? []), {
                   id: (msg as Record<string, unknown>).uuid as string ?? uuid(),
                   type: 'system' as const,
-                  content: { emoji: isFailed ? '❌' : '✅', name, summary: data.summary },
+                  content: { icon: isFailed ? 'circle-x' : 'circle-check', name, summary: data.summary },
                   timestamp: Date.now(),
                 }],
               }))
@@ -540,7 +540,7 @@ export function App() {
                     items.push({
                       id: toolId,
                       type: 'system',
-                      content: { emoji: '🚀', name, summary: 'started' },
+                      content: { icon: 'zap', name, summary: 'started' },
                       timestamp: 0,
                     })
                     historyBgToolUseIds.add(toolId)
@@ -582,13 +582,13 @@ export function App() {
                 const parsed = parseTaskNotificationXml(content)
                 if (parsed) {
                   const startedLine = [...items].reverse().find(it =>
-                    it.type === 'system' && (it.content as Record<string, unknown>)?.emoji === '🚀'
+                    it.type === 'system' && (it.content as Record<string, unknown>)?.icon === 'zap'
                   )
                   const name = startedLine ? (startedLine.content as Record<string, unknown>).name as string : 'Agent'
                   items.push({
                     id: uuid(),
                     type: 'system',
-                    content: { emoji: parsed.isFailed ? '❌' : '✅', name, summary: parsed.summary },
+                    content: { icon: parsed.isFailed ? 'circle-x' : 'circle-check', name, summary: parsed.summary },
                     timestamp: 0,
                   })
                 } else {
@@ -607,13 +607,13 @@ export function App() {
                     const parsed = parseTaskNotificationXml(blockText)
                     if (parsed) {
                       const startedLine = [...items].reverse().find(it =>
-                        it.type === 'system' && (it.content as Record<string, unknown>)?.emoji === '🚀'
+                        it.type === 'system' && (it.content as Record<string, unknown>)?.icon === 'zap'
                       )
                       const name = startedLine ? (startedLine.content as Record<string, unknown>).name as string : 'Agent'
                       items.push({
                         id: uuid(),
                         type: 'system',
-                        content: { emoji: parsed.isFailed ? '❌' : '✅', name, summary: parsed.summary },
+                        content: { icon: parsed.isFailed ? 'circle-x' : 'circle-check', name, summary: parsed.summary },
                         timestamp: 0,
                       })
                       continue

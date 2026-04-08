@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, MessageSquare, Terminal, ArrowUp, ArrowDown, Square, PauseCircle, HelpCircle, Pencil, GitBranch } from "lucide-react"
+import { Send, MessageSquare, Terminal, ArrowUp, ArrowDown, Square, PauseCircle, HelpCircle, Pencil, GitBranch, Zap, Loader, CircleCheck, CircleX } from "lucide-react"
 import { MessageBubble } from "./MessageBubble"
 import { EventCard } from "./EventCard"
 import { QuestionCard } from "./QuestionCard"
@@ -318,7 +318,7 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
         )
       }
       case "system": {
-        const data = item.content as { command?: string; emoji?: string; name?: string; summary?: string }
+        const data = item.content as { command?: string; icon?: string; name?: string; summary?: string }
         if (data.command) {
           return (
             <div key={item.id} className="flex items-center gap-4 my-4">
@@ -331,15 +331,18 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           )
         }
         // Background task status line
-        if (data.emoji) {
+        if (data.icon) {
+          const IconComponent = data.icon === 'circle-x' ? CircleX
+            : data.icon === 'circle-check' ? CircleCheck
+            : data.icon === 'loader' ? Loader
+            : Zap
+          const pillStyle = data.icon === 'circle-x' ? 'bg-red-50 border-red-200 text-red-700'
+            : data.icon === 'circle-check' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-[#f5f0ff] border-[#d4c5f9] text-violet-700'
           return (
             <div key={item.id} className="flex justify-center my-1.5 animate-[slideIn_0.3s_ease-out]">
-              <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-sm ${
-                data.emoji === '❌' ? 'bg-red-50 border-red-200 text-red-700'
-                : data.emoji === '✅' ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : 'bg-[#f5f0ff] border-[#d4c5f9] text-violet-700'
-              }`}>
-                <span>{data.emoji}</span>
+              <span className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border text-sm ${pillStyle}`}>
+                <IconComponent size={14} />
                 <span className="font-medium">{data.name}</span>
                 {data.summary && data.summary !== 'started' && <span className="opacity-70">— {data.summary}</span>}
               </span>

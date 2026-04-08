@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Zap, Loader, CircleCheck, CircleX } from 'lucide-react'
 import { MessageBubble } from './MessageBubble'
 import { EventCard } from './EventCard'
 import type { ChatItem } from '../types'
@@ -101,10 +101,18 @@ export function SubAgentCard({ agentId, sessionId, agentName, description, statu
         )
       }
       case 'system': {
-        const sys = item.content as { emoji?: string; name?: string; summary?: string }
+        const sys = item.content as { icon?: string; name?: string; summary?: string }
+        const SysIcon = sys.icon === 'circle-x' ? CircleX
+          : sys.icon === 'circle-check' ? CircleCheck
+          : sys.icon === 'loader' ? Loader
+          : Zap
+        const iconColor = sys.icon === 'circle-x' ? 'text-red-500'
+          : sys.icon === 'circle-check' ? 'text-emerald-500'
+          : sys.icon === 'loader' ? 'text-amber-500'
+          : 'text-violet-500'
         return (
           <div key={item.id} className="flex items-center gap-2 text-xs text-slate-500 py-1">
-            {sys.emoji && <span>{sys.emoji}</span>}
+            <SysIcon size={13} className={iconColor} />
             {sys.name && <span className="font-medium text-violet-700">{sys.name}</span>}
             {sys.summary && <span className="text-slate-400">— {sys.summary}</span>}
           </div>
