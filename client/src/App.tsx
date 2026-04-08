@@ -865,6 +865,7 @@ export function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             message: content,
+            ...(defaultCwd ? { cwd: defaultCwd } : {}),
             ...(composeModel ? { model: composeModel } : {}),
             ...(composeArgs.length ? { executableArgs: composeArgs } : {}),
             ...(Object.keys(composeEnv).length ? { env: composeEnv } : {}),
@@ -899,7 +900,7 @@ export function App() {
         console.error('Create session failed:', err)
       }
     },
-    [send, store, composeModel, composeArgs, composeEnv],
+    [send, store, defaultCwd, composeModel, composeArgs, composeEnv],
   )
 
   const handleNewChat = useCallback(() => {
@@ -1133,7 +1134,7 @@ export function App() {
             onPermissionDecision={handlePermissionDecision}
             onSelectArtifact={(toolName, input, result) => setArtifact({ toolName, input, result })}
             activeSessionId={store.activeSessionId}
-            sessionRunning={activeSession?.status === 'running'}
+            sessionRunning={activeSession?.status !== 'stopped'}
             onResume={handleResumeSession}
             sessionStatus={sessionStatus}
             availableModels={availableModels}

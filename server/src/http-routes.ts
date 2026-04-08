@@ -18,15 +18,20 @@ export function registerHttpRoutes(app: FastifyInstance, sessionManager: Session
       return
     }
 
-    const cwd = body.cwd
-    if (cwd) {
-      await mkdir(cwd, { recursive: true })
+    try {
+      const cwd = body.cwd
+      if (cwd) {
+        await mkdir(cwd, { recursive: true })
+      }
+
+      const sessionId = await sessionManager.createSession(body as { message: string; cwd?: string; model?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> })
+      const status = sessionManager.getSessionStatus(sessionId)
+
+      reply.code(201).send({ sessionId, status })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      reply.code(500).send({ error: message })
     }
-
-    const sessionId = await sessionManager.createSession(body as { message: string; cwd?: string; model?: string; permissionMode?: string; executableArgs?: string[]; env?: Record<string, string> })
-    const status = sessionManager.getSessionStatus(sessionId)
-
-    reply.code(201).send({ sessionId, status })
   })
 
   app.post<{ Params: { id: string } }>('/api/sessions/:id/resume', async (request, reply) => {
