@@ -47,15 +47,6 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             return
           }
 
-          if (msg.type === 'session_id_resolved') {
-            send({
-              type: 'session_id_resolved',
-              tempId: msg.tempId as string,
-              sessionId: msg.sessionId as string,
-            })
-            return
-          }
-
           if (msg.type === 'session_resumed') {
             send({
               type: 'session_resumed',
