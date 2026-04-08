@@ -376,20 +376,44 @@ export class SessionManager {
     const session = unstable_v2_createSession(sessionOptions)
     try { process.chdir(originalCwd) } catch { /* ignore */ }
 
-    // Send first message so the SDK can assign a real sessionId
+    // Send first message — SDK assigns sessionId asynchronously after send()
+    this.log.info({ cwd, model: options.model }, 'createSession: sending first message')
     await session.send(options.message)
+
+    // SDK requires stream() to be consumed for the session to progress.
+    // Use a mutable ref so consumeStream picks up the real sessionId once resolved.
+    const streamIdRef = { current: `pending-${Date.now()}` }
+    this.log.info('createSession: starting stream + waiting for sessionId')
+    this.sessions.set(streamIdRef.current, session)
+    this.streamingSessionIds.add(streamIdRef.current)
+    this.consumeStream(streamIdRef, session)
+
     const sessionId = await waitForSessionId(session, 30000)
+    this.log.info({ sessionId }, 'createSession: sessionId resolved')
     sessionIdRef.current = sessionId
 
-    // Register under real sessionId — no tempId ever exists
-    this.sessions.set(sessionId, session)
+    // Remap internal maps from tempKey → real sessionId
+    const tempKey = streamIdRef.current === sessionId ? null : streamIdRef.current
+    streamIdRef.current = sessionId
+    if (tempKey && tempKey !== sessionId) {
+      const s = this.sessions.get(tempKey)
+      if (s) { this.sessions.delete(tempKey); this.sessions.set(sessionId, s) }
+      this.streamingSessionIds.delete(tempKey)
+      this.streamingSessionIds.add(sessionId)
+      const listeners = this.sessionListeners.get(tempKey)
+      if (listeners) { this.sessionListeners.delete(tempKey); this.sessionListeners.set(sessionId, listeners) }
+      const q = this.activeQueries.get(tempKey)
+      if (q) { this.activeQueries.delete(tempKey); this.activeQueries.set(sessionId, q) }
+      const prevStatus = this.sessionStatus.get(tempKey)
+      this.sessionStatus.delete(tempKey)
+      if (prevStatus) this.sessionStatus.set(sessionId, prevStatus)
+    }
+
+    // Register session state under real sessionId
     this.sessionStatus.set(sessionId, 'running')
     this.sessionCwds.set(sessionId, cwd)
     this.sessionCreationOptions.set(sessionId, opts)
     saveSessionOptions(sessionId, opts)
-
-    // Turn is already active from send(), start consuming the stream
-    this.startStreamConsumer(sessionId, session)
 
     return sessionId
   }
@@ -417,40 +441,42 @@ export class SessionManager {
   ): void {
     if (this.streamingSessionIds.has(sessionId)) return
     this.streamingSessionIds.add(sessionId)
-    this.consumeStream(sessionId, session)
+    this.consumeStreamWithRef({ current: sessionId }, session)
   }
 
   private async consumeStream(
-    initialSessionId: string,
+    idRef: { current: string },
     session: SDKSession,
   ): Promise<void> {
-    const sessionId = initialSessionId
+    // sessionId is read from ref — may change from tempKey to real ID during initial creation
+    const getId = () => idRef.current
     let modelsFetched = false
 
     try {
       // SDK's stream() ends after each turn (on "result" message).
       // Loop to re-enter stream() for subsequent turns.
       while (true) {
-        this.log.info({ sessionId }, 'consumeStream: entering stream()')
+        this.log.info({ sessionId: getId() }, 'consumeStream: entering stream()')
         const query = session.stream()
         const turnState: TurnState = { turnStarted: false }
-        this.activeQueries.set(sessionId, query)
+        this.activeQueries.set(getId(), query)
 
         for await (const msg of query) {
+          const sid = getId()
           const msgAny = msg as Record<string, unknown>
           this.log.info({
             type: msgAny.type,
             subtype: msgAny.subtype,
             parentToolUseId: msgAny.parent_tool_use_id,
-            sessionId,
+            sessionId: sid,
             message: JSON.stringify(msg).slice(0, 50),
           }, 'Stream message received')
 
           // Fetch models once after stream is active (works for both new and resumed sessions)
           if (!modelsFetched) {
             modelsFetched = true
-            this.activeQueries.set(sessionId, query)
-            this.fetchAndBroadcastModels(sessionId, session, (msgAny.type === 'system' && msgAny.subtype === 'init') ? (msgAny.model as string) : undefined)
+            this.activeQueries.set(sid, query)
+            this.fetchAndBroadcastModels(sid, session, (msgAny.type === 'system' && msgAny.subtype === 'init') ? (msgAny.model as string) : undefined)
           }
 
           // Extract commands from init message, then enrich with full descriptions
@@ -458,26 +484,23 @@ export class SessionManager {
             const slashCmds = (msgAny.slash_commands as string[]) ?? []
             const skills = (msgAny.skills as string[]) ?? []
             const allNames = new Set([...slashCmds, ...skills])
-            // Set basic cache immediately so getCommands() doesn't return empty
-            this.sessionCommands.set(sessionId, Array.from(allNames).map((name) => ({
+            this.sessionCommands.set(sid, Array.from(allNames).map((name) => ({
               name,
               description: skills.includes(name) ? 'skill' : '',
             })))
-            // Async: fetch full descriptions from supportedCommands()
             const q = (session as unknown as { query: { supportedCommands(): Promise<{ name: string; description: string }[]> } }).query
             q?.supportedCommands()?.then((cmds: { name: string; description: string }[]) => {
               if (cmds.length > 0) {
-                // Merge: use supportedCommands descriptions, but keep init-only skills that supportedCommands missed
+                const currentSid = getId()
                 const cmdMap = new Map(cmds.map((c) => [c.name, c]))
-                const existing = this.sessionCommands.get(sessionId) ?? []
+                const existing = this.sessionCommands.get(currentSid) ?? []
                 for (const prev of existing) {
                   if (!cmdMap.has(prev.name)) {
                     cmdMap.set(prev.name, prev)
                   }
                 }
-                this.sessionCommands.set(sessionId, Array.from(cmdMap.values()))
-                // Notify via broadcast so ws-handler can push updated list
-                this.broadcast(sessionId, (l) => l.onMessage(sessionId, { type: 'commands_updated' } as unknown as SDKMessage))
+                this.sessionCommands.set(currentSid, Array.from(cmdMap.values()))
+                this.broadcast(currentSid, (l) => l.onMessage(currentSid, { type: 'commands_updated' } as unknown as SDKMessage))
               }
             }).catch(() => {})
           }
@@ -487,35 +510,35 @@ export class SessionManager {
             } else {
               this.log.info({ cost: (msgAny as Record<string, unknown>).total_cost_usd }, 'Turn complete')
             }
-            this.sessionStatus.set(sessionId, 'idle')
+            this.sessionStatus.set(sid, 'idle')
           }
 
-          // Set session status to running on first turn message (skip system/init)
           if (shouldBroadcastTurnStarted(turnState)) {
-            this.sessionStatus.set(sessionId, 'running')
+            this.sessionStatus.set(sid, 'running')
           }
-          this.broadcast(sessionId, (l) => l.onMessage(sessionId, msg))
+          this.broadcast(sid, (l) => l.onMessage(sid, msg))
         }
-        this.log.info({ sessionId }, 'consumeStream: stream() ended (turn complete)')
-        if (this.closedSessionIds.has(sessionId)) break
+        const sid = getId()
+        this.log.info({ sessionId: sid }, 'consumeStream: stream() ended (turn complete)')
+        if (this.closedSessionIds.has(sid)) break
         // Wait briefly before re-entering stream() for next turn
         await new Promise((r) => setTimeout(r, 50))
       }
     } catch (err) {
-      // AbortError is expected when session is closed
       if (!(err instanceof Error && err.name === 'AbortError')) {
         this.log.error({ err }, 'Stream error')
       }
     } finally {
-      this.sessionStatus.set(sessionId, 'stopped')
-      this.streamingSessionIds.delete(sessionId)
-      this.activeQueries.delete(sessionId)
-      if (this.sessions.has(sessionId) && !this.closedSessionIds.has(sessionId)) {
-        const s = this.sessions.get(sessionId)
-        this.sessions.delete(sessionId)
+      const sid = getId()
+      this.sessionStatus.set(sid, 'stopped')
+      this.streamingSessionIds.delete(sid)
+      this.activeQueries.delete(sid)
+      if (this.sessions.has(sid) && !this.closedSessionIds.has(sid)) {
+        const s = this.sessions.get(sid)
+        this.sessions.delete(sid)
         try { s?.close() } catch { /* already closed */ }
       }
-      this.broadcast(sessionId, (l) => l.onEnd(sessionId))
+      this.broadcast(sid, (l) => l.onEnd(sid))
     }
   }
 
