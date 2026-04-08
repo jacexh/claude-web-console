@@ -17,7 +17,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
-import { shouldBroadcastTurnStarted, type TurnState } from './turn-lifecycle.js'
+import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, type TurnState } from './turn-lifecycle.js'
 import { SessionStatusTracker } from './session-status.js'
 
 type PermissionResolver = {
@@ -549,7 +549,7 @@ export class SessionManager {
         try { sessionId = session.sessionId } catch { break }
         if (this.closedSessionIds.has(sessionId)) break
         // Reset to idle if stream ended without a result (e.g. init-only stream)
-        if (this.sessionStatus.get(sessionId) === 'running') {
+        if (shouldResetToIdleOnStreamEnd(this.sessionStatus.get(sessionId))) {
           this.sessionStatus.set(sessionId, 'idle')
         }
         // Wait briefly before re-entering stream() for next turn

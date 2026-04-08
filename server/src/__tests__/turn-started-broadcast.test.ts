@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest'
  * We extract the logic into a pure function so it can be tested
  * without mocking the full SessionManager.
  */
-import { shouldBroadcastTurnStarted } from '../turn-lifecycle'
+import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd } from '../turn-lifecycle'
 
 describe('shouldBroadcastTurnStarted', () => {
   it('returns true for the first message of a turn', () => {
@@ -49,5 +49,19 @@ describe('shouldBroadcastTurnStarted', () => {
     expect(shouldBroadcastTurnStarted(state)).toBe(true)
     // Turn 2: second message
     expect(shouldBroadcastTurnStarted(state)).toBe(false)
+  })
+})
+
+describe('shouldResetToIdleOnStreamEnd', () => {
+  it('returns true when current status is running (stream ended without result)', () => {
+    expect(shouldResetToIdleOnStreamEnd('running')).toBe(true)
+  })
+
+  it('returns false when current status is idle (result already set idle)', () => {
+    expect(shouldResetToIdleOnStreamEnd('idle')).toBe(false)
+  })
+
+  it('returns false when current status is stopped (session closed)', () => {
+    expect(shouldResetToIdleOnStreamEnd('stopped')).toBe(false)
   })
 })
