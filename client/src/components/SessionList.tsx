@@ -30,6 +30,8 @@ interface SessionListProps {
   onRename: (sessionId: string, title: string) => void
   defaultCwd: string
   onProjectChange?: (cwd: string | null) => void
+  onRequestFiles?: (prefix: string) => void
+  fileList?: import('../types').FileEntry[]
 }
 
 /** Extract the last directory name from a path for display */
@@ -76,7 +78,7 @@ function formatRelativeTime(timestamp: number): string {
   return `${days}d ago`
 }
 
-export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirectory, connected, onToggleCollapse, onClose, onRename, defaultCwd, onProjectChange }: SessionListProps) {
+export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirectory, connected, onToggleCollapse, onClose, onRename, defaultCwd, onProjectChange, onRequestFiles, fileList }: SessionListProps) {
   const [page, setPage] = useState(0)
   const [jumpId, setJumpId] = useState("")
   const [showJump, setShowJump] = useState(false)
@@ -222,88 +224,133 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
       ) : (
         /* ===== Mode B: Session List (filtered by project) ===== */
         <>
-          {/* Project header + New Session */}
-          <div className="px-4 pt-3 pb-2">
+          {/* Project header */}
+          <div className="px-4 pt-3 pb-1">
             <button
               onClick={() => selectProject(null)}
-              className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 mb-2 transition-colors"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-600 mb-1.5 transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
               All Projects
             </button>
             <div className="flex items-center gap-2" title={selectedProject}>
               <FolderOpen className="w-4 h-4 shrink-0 text-primary" />
-              <span className="text-sm font-semibold text-slate-700 truncate">
+              <span className="text-sm font-semibold text-slate-700 truncate flex-1">
                 {projectName(selectedProject)}
               </span>
             </div>
           </div>
 
-          <div className="px-4 pb-2 space-y-2">
-            {showDirInput ? (
-              <form onSubmit={(e) => {
-                e.preventDefault()
-                const trimmed = dirPath.trim()
-                if (trimmed) {
-                  onOpenDirectory(trimmed)
-                  selectProject(trimmed)
-                  setDirPath('')
-                  setShowDirInput(false)
-                }
-              }} className="flex gap-1">
-                <input
-                  ref={dirInputRef}
-                  value={dirPath}
-                  onChange={(e) => setDirPath(e.target.value)}
-                  placeholder="/path/to/directory"
-                  className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-primary font-mono"
-                  autoFocus
-                  onBlur={() => { if (!dirPath.trim()) setShowDirInput(false) }}
-                  onKeyDown={(e) => { if (e.key === 'Escape') { setShowDirInput(false); setDirPath('') } }}
-                />
-                <Button type="submit" disabled={!dirPath.trim()} className="shrink-0 bg-primary text-white px-3 py-2 rounded-lg disabled:opacity-40">
-                  Go
-                </Button>
-              </form>
-            ) : (
-              <Button
-                onClick={() => setShowDirInput(true)}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 shadow-sm"
-              >
-                <FolderOpen className="h-5 w-5" />
-                Open Directory
-              </Button>
-            )}
-
-            {/* Jump to session */}
+          {/* Toolbar: Open Directory + Jump to Session */}
+          <div className="px-4 py-2 flex items-center gap-1.5 border-b border-slate-100">
+            <button
+              onClick={() => setShowDirInput(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors"
+              title="Open directory"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              <span>Open</span>
+            </button>
+            <div className="w-px h-4 bg-slate-200" />
             {showJump ? (
-              <div className="flex gap-1.5">
+              <div className="flex-1 flex gap-1">
                 <input
                   type="text"
                   value={jumpId}
                   onChange={(e) => setJumpId(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleJump(); if (e.key === "Escape") setShowJump(false) }}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleJump(); if (e.key === "Escape") { setShowJump(false); setJumpId('') } }}
                   placeholder="Session ID..."
                   autoFocus
-                  className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs font-mono text-foreground outline-none placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-md px-2 py-1 text-xs font-mono text-foreground outline-none placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                 />
-                <button
-                  onClick={handleJump}
-                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-xs font-medium transition-colors"
-                >
-                  Go
-                </button>
+                <button onClick={handleJump} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-xs transition-colors">Go</button>
               </div>
             ) : (
               <button
                 onClick={() => setShowJump(true)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
+                className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
               >
                 <Search className="w-3.5 h-3.5" />
                 Jump to session...
               </button>
             )}
           </div>
+
+          {/* Open Directory Dialog */}
+          {showDirInput && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/20" onClick={() => { setShowDirInput(false); setDirPath('') }} />
+              <div className="relative bg-white rounded-xl shadow-lg border border-slate-200 w-full max-w-md mx-4 p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-3">Open Directory</h3>
+                <div className="relative">
+                  <input
+                    ref={dirInputRef}
+                    value={dirPath}
+                    onChange={(e) => {
+                      setDirPath(e.target.value)
+                      // Trigger autocomplete
+                      const v = e.target.value.trim()
+                      if (v && onRequestFiles) {
+                        const prefix = v.endsWith('/') ? v : v.slice(0, v.lastIndexOf('/') + 1)
+                        if (prefix) onRequestFiles(prefix)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') { setShowDirInput(false); setDirPath('') }
+                      if (e.key === 'Enter') {
+                        const trimmed = dirPath.trim()
+                        if (trimmed) {
+                          onOpenDirectory(trimmed)
+                          selectProject(trimmed)
+                          setDirPath('')
+                          setShowDirInput(false)
+                        }
+                      }
+                    }}
+                    placeholder="/path/to/directory"
+                    autoFocus
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  {/* Autocomplete suggestions */}
+                  {dirPath.trim() && (fileList ?? []).length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                      {(fileList ?? []).filter(f => f.isDir).map((f) => (
+                        <button
+                          key={f.path}
+                          onClick={() => {
+                            setDirPath(f.path)
+                            if (onRequestFiles) onRequestFiles(f.path + '/')
+                          }}
+                          className="w-full text-left px-3 py-1.5 text-xs font-mono text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <FolderOpen className="w-3 h-3 text-slate-400 shrink-0" />
+                          {f.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <button onClick={() => { setShowDirInput(false); setDirPath('') }} className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700">Cancel</button>
+                  <Button
+                    onClick={() => {
+                      const trimmed = dirPath.trim()
+                      if (trimmed) {
+                        onOpenDirectory(trimmed)
+                        selectProject(trimmed)
+                        setDirPath('')
+                        setShowDirInput(false)
+                      }
+                    }}
+                    disabled={!dirPath.trim()}
+                    className="px-4 py-1.5 text-xs bg-primary text-white rounded-lg disabled:opacity-40"
+                  >
+                    Open
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Session list */}
           <ScrollArea className="flex-1">

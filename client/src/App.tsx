@@ -1150,6 +1150,8 @@ export function App() {
           onRename={handleRenameSession}
           defaultCwd={defaultCwd}
           onProjectChange={setCurrentProject}
+          onRequestFiles={handleRequestFiles}
+          fileList={fileList}
         />
       </div>
       {!sidebarCollapsed && (
