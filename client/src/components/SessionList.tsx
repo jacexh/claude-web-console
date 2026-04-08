@@ -242,7 +242,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
           </div>
 
           {/* Toolbar: Open Directory + Jump to Session */}
-          <div className="px-4 py-2 flex items-center gap-1.5 border-b border-slate-100">
+          <div className="px-4 py-2 flex items-center gap-1.5 border-b border-slate-100 bg-slate-50/70">
             <button
               onClick={() => { setDirPath(defaultCwd || ''); setShowDirInput(true); if (defaultCwd && onRequestFiles) onRequestFiles(defaultCwd.endsWith('/') ? defaultCwd : defaultCwd + '/') }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors"
@@ -297,23 +297,31 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {/* Autocomplete suggestions */}
-                  {dirPath.trim() && (fileList ?? []).length > 0 && (
-                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
-                      {(fileList ?? []).filter(f => f.isDir).map((f) => (
-                        <button
-                          key={f.path}
-                          onClick={() => {
-                            setDirPath(f.path)
-                            if (onRequestFiles) onRequestFiles(f.path + '/')
-                          }}
-                          className="w-full text-left px-3 py-1.5 text-xs font-mono text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <FolderOpen className="w-3 h-3 text-slate-400 shrink-0" />
-                          {f.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {dirPath.trim() && (() => {
+                    const dirs = (fileList ?? []).filter(f => f.isDir)
+                    // Filter by partial name: if user types "/home/xuhao/tal", match entries starting with "tal"
+                    const lastSlash = dirPath.lastIndexOf('/')
+                    const partial = lastSlash >= 0 ? dirPath.slice(lastSlash + 1).toLowerCase() : ''
+                    const filtered = partial ? dirs.filter(f => f.name.toLowerCase().startsWith(partial)) : dirs
+                    if (filtered.length === 0) return null
+                    return (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10">
+                        {filtered.map((f) => (
+                          <button
+                            key={f.path}
+                            onClick={() => {
+                              setDirPath(f.path)
+                              if (onRequestFiles) onRequestFiles(f.path + '/')
+                            }}
+                            className="w-full text-left px-3 py-1.5 text-xs font-mono text-slate-600 hover:bg-slate-50 flex items-center gap-2"
+                          >
+                            <FolderOpen className="w-3 h-3 text-slate-400 shrink-0" />
+                            {f.name}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </div>
                 <div className="flex justify-end gap-2 mt-4">
                   <button onClick={() => { setShowDirInput(false); setDirPath('') }} className="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700">Cancel</button>
