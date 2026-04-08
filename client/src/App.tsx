@@ -397,8 +397,8 @@ export function App() {
               } else if (block.type === 'tool_result') {
                 const toolUseId = block.tool_use_id as string
                 // Skip tool_result for background Agent tool_use
+                // Keep the ID in the set — task_progress/task_notification arrive later and need the lookup
                 if (backgroundToolUseIdsRef.current.has(toolUseId)) {
-                  backgroundToolUseIdsRef.current.delete(toolUseId)
                   continue
                 }
                 const cleaned = cleanToolResult(block.content)
