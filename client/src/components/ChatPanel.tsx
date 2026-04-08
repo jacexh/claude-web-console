@@ -40,6 +40,13 @@ interface ChatPanelProps {
   onOpenSettings?: () => void
   onInterrupt?: (sessionId: string) => void
   onStopTask?: (sessionId: string, taskId: string) => void
+  composeModel?: string
+  composeEffort?: EffortLevel
+  onComposeSetModel?: (model: string) => void
+  onComposeSetEffort?: (level: EffortLevel) => void
+  onComposeSend?: (content: string) => void
+  onOpenAdvancedOptions?: () => void
+  globalModels?: ModelInfo[]
 }
 
 /** Extract a /command being typed (after space or at start) */
@@ -56,7 +63,7 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask }: ChatPanelProps) {
+export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel: _composeModel, composeEffort, onComposeSetModel, onComposeSetEffort, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -391,25 +398,65 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
 
   if (!activeSessionId) {
     return (
-      <div className="h-full flex items-center justify-center min-w-0 bg-white">
-        <div className="flex flex-col items-center gap-5 text-center px-8">
-          <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center shadow-soft">
-            <MessageSquare className="h-7 w-7 text-white" />
+      <div className="h-full flex flex-col min-w-0 bg-white">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-5 text-center px-8">
+            <div className="h-16 w-16 rounded-2xl bg-primary flex items-center justify-center shadow-soft">
+              <MessageSquare className="h-7 w-7 text-white" />
+            </div>
+            <div>
+              <p className="text-xl font-semibold text-foreground tracking-[-0.02em]">Claude Web Console</p>
+              <p className="text-sm text-muted-foreground mt-2 max-w-[300px] leading-relaxed">
+                Type a message to start a new session
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-xl font-semibold text-foreground tracking-[-0.02em]">Claude Web Console</p>
-            <p className="text-sm text-muted-foreground mt-2 max-w-[300px] leading-relaxed">
-              Select a session from the sidebar or create a new one to get started
-            </p>
+        </div>
+        <div className="shrink-0 bg-white border-t border-slate-100 p-4">
+          <div className="max-w-4xl mx-auto">
+            <StatusBar
+              status={{}}
+              loading={false}
+              availableModels={globalModels ?? []}
+              onSetModel={onComposeSetModel ?? (() => {})}
+              effortLevel={composeEffort ?? 'medium'}
+              onSetEffortLevel={onComposeSetEffort ?? (() => {})}
+              onOpenSettings={onOpenAdvancedOptions}
+            />
+            <div className="flex items-end gap-2 border rounded-xl px-4 py-3 border-slate-200 focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/20 transition-colors bg-white">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    const trimmed = input.trim()
+                    if (trimmed) {
+                      onComposeSend?.(trimmed)
+                      setInput('')
+                    }
+                  }
+                }}
+                placeholder="Send a message to start a new session..."
+                rows={1}
+                className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+              />
+              <button
+                onClick={() => {
+                  const trimmed = input.trim()
+                  if (trimmed) {
+                    onComposeSend?.(trimmed)
+                    setInput('')
+                  }
+                }}
+                disabled={!input.trim()}
+                className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg bg-primary text-white disabled:opacity-40 hover:bg-primary/90 transition-colors"
+              >
+                <ArrowUp className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <a
-            href="https://github.com/jacexh/talgent"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-muted-foreground/60 hover:text-muted-foreground transition-colors mt-4"
-          >
-            github.com/jacexh/talgent
-          </a>
         </div>
       </div>
     )
