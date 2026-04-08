@@ -880,17 +880,10 @@ export function App() {
         }
         const data = await resp.json() as { sessionId: string; status: 'idle' | 'running' | 'stopped' }
 
-        const item: ChatItem = {
-          id: uuid(),
-          type: 'user',
-          content,
-          timestamp: Date.now(),
-        }
+        store.addSession(data.sessionId, data.status as 'idle' | 'running', defaultCwd || undefined)
 
-        store.addSession(data.sessionId, data.status as 'idle' | 'running')
-        store.addChatItem(data.sessionId, item)
-        sentMessagesRef.current.add(content)
-
+        // Subscribe to WS — session_history will provide the first message,
+        // and stream consumer will push the assistant response
         send({ type: 'switch_session', sessionId: data.sessionId })
 
         // Reset compose state
@@ -1162,7 +1155,7 @@ export function App() {
             subagentMessages={subagentMessages}
             onGetSubagentMessages={handleGetSubagentMessages}
             onElicitationResponse={handleElicitationResponse}
-            onOpenSettings={handleOpenSettings}
+            onOpenSettings={() => setShowAdvancedOptions(true)}
             onInterrupt={handleInterruptSession}
             onStopTask={handleStopTask}
             composeModel={composeModel}
