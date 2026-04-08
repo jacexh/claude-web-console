@@ -9,7 +9,7 @@ import { ResizeHandle } from './components/ResizeHandle'
 import type { ChatItem, SessionInfo, ModelInfo, EffortLevel } from './types'
 import { extractSystemTags } from './lib/strip-system-tags'
 import type { FileEntry } from './components/FileMention'
-import { NewSessionDialog } from './components/NewSessionDialog'
+import { AdvancedOptionsDialog } from './components/AdvancedOptionsDialog'
 import type { SessionStatusInfo } from './components/StatusBar'
 import { SettingsModal } from './components/SettingsModal'
 import { classifyTaskEvent, parseTaskNotificationXml, type TaskStartedData, type TaskProgressData, type TaskNotificationData } from './lib/task-message-handler'
@@ -52,14 +52,17 @@ export function App() {
   const [artifactRatio, setArtifactRatio] = useState(50) // percentage of remaining space
   const contentRef = useRef<HTMLDivElement>(null)
   const fileListCallbackRef = useRef<((files: FileEntry[]) => void) | null>(null)
-  const [showNewSessionDialog, setShowNewSessionDialog] = useState(false)
+  const [composeModel, setComposeModel] = useState('')
+  const [composeEffort, setComposeEffort] = useState<EffortLevel>('medium')
+  const [composeArgs, setComposeArgs] = useState<string[]>([])
+  const [composeEnv, setComposeEnv] = useState<Record<string, string>>({})
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false)
   const [defaultCwd, setDefaultCwd] = useState('')
   const [statusBySession, setStatusBySession] = useState<Record<string, SessionStatusInfo>>({})
   const [modelsBySession, setModelsBySession] = useState<Record<string, ModelInfo[]>>({})
   const [effortBySession, setEffortBySession] = useState<Record<string, EffortLevel>>({})
   const [subagentMessages, setSubagentMessages] = useState<Record<string, ChatItem[]>>({})
   const [showSettings, setShowSettings] = useState(false)
-  const [newSessionProjectCwd, setNewSessionProjectCwd] = useState<string | null>(null)
   const [currentSettings, setCurrentSettings] = useState<Record<string, unknown>>({})
   // Global model list: start with well-known models, replace with SDK list when available
   const [globalModels, setGlobalModels] = useState<ModelInfo[]>([
@@ -656,53 +659,6 @@ export function App() {
           break
         }
 
-        case 'session_id_resolved':
-          store.remapSession(data.tempId as string, data.sessionId as string)
-          // Remap status info
-          setStatusBySession((prev) => {
-            const updated = { ...prev }
-            if (updated[data.tempId as string]) {
-              updated[data.sessionId as string] = updated[data.tempId as string]
-              delete updated[data.tempId as string]
-            }
-            return updated
-          })
-          // Remap model list
-          setModelsBySession((prev) => {
-            const updated = { ...prev }
-            if (updated[data.tempId as string]) {
-              updated[data.sessionId as string] = updated[data.tempId as string]
-              delete updated[data.tempId as string]
-            }
-            return updated
-          })
-          // Remap effort level
-          setEffortBySession((prev) => {
-            const updated = { ...prev }
-            if (updated[data.tempId as string]) {
-              updated[data.sessionId as string] = updated[data.tempId as string]
-              delete updated[data.tempId as string]
-            }
-            return updated
-          })
-          // Remap subagent messages (keys are `${sessionId}:${agentId}`)
-          setSubagentMessages((prev) => {
-            const tempPrefix = `${data.tempId as string}:`
-            const hasTemp = Object.keys(prev).some((k) => k.startsWith(tempPrefix))
-            if (!hasTemp) return prev
-            const updated: Record<string, ChatItem[]> = {}
-            for (const [key, value] of Object.entries(prev)) {
-              if (key.startsWith(tempPrefix)) {
-                updated[`${data.sessionId as string}:${key.slice(tempPrefix.length)}`] = value
-              } else {
-                updated[key] = value
-              }
-            }
-            return updated
-          })
-          send({ type: 'list_commands', sessionId: data.sessionId as string })
-          break
-
         case 'session_resumed':
           store.setSessionStatus(data.sessionId as string, 'idle')
           break
@@ -901,29 +857,17 @@ export function App() {
     }
   }, [connected, send])
 
-  const handleCreateSession = useCallback((projectCwd?: string) => {
-    setNewSessionProjectCwd(projectCwd ?? null)
-    setShowNewSessionDialog(true)
-  }, [])
-
-  const handleOpenDirectory = useCallback(() => {
-    setNewSessionProjectCwd(null)
-    setShowNewSessionDialog(true)
-  }, [])
-
-  const handleConfirmNewSession = useCallback(
-    async (cwd: string, model?: string, permissionMode?: string, executableArgs?: string[], env?: Record<string, string>) => {
-      setShowNewSessionDialog(false)
+  const handleComposeSend = useCallback(
+    async (content: string) => {
       try {
         const resp = await fetch('/api/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            cwd,
-            ...(model ? { model } : {}),
-            ...(permissionMode ? { permissionMode } : {}),
-            ...(executableArgs?.length ? { executableArgs } : {}),
-            ...(env && Object.keys(env).length ? { env } : {}),
+            message: content,
+            ...(composeModel ? { model: composeModel } : {}),
+            ...(composeArgs.length ? { executableArgs: composeArgs } : {}),
+            ...(Object.keys(composeEnv).length ? { env: composeEnv } : {}),
           }),
         })
         if (!resp.ok) {
@@ -932,16 +876,35 @@ export function App() {
           return
         }
         const data = await resp.json() as { sessionId: string; status: 'idle' | 'running' | 'stopped' }
-        // Initialize session with server-authoritative status
-        store.addSession(data.sessionId, data.status, cwd)
-        // Subscribe to WS for streaming updates
+
+        const item: ChatItem = {
+          id: uuid(),
+          type: 'user',
+          content,
+          timestamp: Date.now(),
+        }
+
+        store.addSession(data.sessionId, data.status as 'idle' | 'running')
+        store.addChatItem(data.sessionId, item)
+        sentMessagesRef.current.add(content)
+
         send({ type: 'switch_session', sessionId: data.sessionId })
+
+        // Reset compose state
+        setComposeModel('')
+        setComposeEffort('medium')
+        setComposeArgs([])
+        setComposeEnv({})
       } catch (err) {
         console.error('Create session failed:', err)
       }
     },
-    [send, store],
+    [send, store, composeModel, composeArgs, composeEnv],
   )
+
+  const handleNewChat = useCallback(() => {
+    store.setActive(null)
+  }, [store])
 
   const handleSwitchSession = useCallback(
     (sessionId: string) => {
@@ -1122,7 +1085,7 @@ export function App() {
     : {}
   const availableModels = store.activeSessionId
     ? (modelsBySession[store.activeSessionId] ?? globalModels)
-    : []
+    : globalModels
 
   return (
     <div className="flex h-screen bg-white relative">
@@ -1144,13 +1107,12 @@ export function App() {
           sessions={store.sessions}
           activeSessionId={store.activeSessionId}
           onSelect={handleSwitchSession}
-          onCreate={handleCreateSession}
+          onNewChat={handleNewChat}
           connected={connected}
           onToggleCollapse={() => setSidebarCollapsed(true)}
           onClose={handleCloseSession}
           onRename={handleRenameSession}
           defaultCwd={defaultCwd}
-          onOpenDirectory={handleOpenDirectory}
         />
       </div>
       {!sidebarCollapsed && (
@@ -1189,6 +1151,13 @@ export function App() {
             onOpenSettings={handleOpenSettings}
             onInterrupt={handleInterruptSession}
             onStopTask={handleStopTask}
+            composeModel={composeModel}
+            composeEffort={composeEffort}
+            onComposeSetModel={setComposeModel}
+            onComposeSetEffort={setComposeEffort}
+            onComposeSend={handleComposeSend}
+            onOpenAdvancedOptions={() => setShowAdvancedOptions(true)}
+            globalModels={globalModels}
           />
         </div>
         {artifact && (
@@ -1211,15 +1180,16 @@ export function App() {
           <ArtifactPanel artifact={null} onClose={() => {}} />
         )}
       </div>
-      <NewSessionDialog
-        open={showNewSessionDialog}
-        defaultCwd={defaultCwd}
-        projectCwd={newSessionProjectCwd}
-        availableModels={globalModels}
-        onConfirm={handleConfirmNewSession}
-        onCancel={() => setShowNewSessionDialog(false)}
-        onRequestFiles={handleRequestFiles}
-        fileList={fileList}
+      <AdvancedOptionsDialog
+        open={showAdvancedOptions}
+        readOnly={store.activeSessionId !== null}
+        executableArgs={composeArgs}
+        env={composeEnv}
+        onSave={(args, env) => {
+          setComposeArgs(args)
+          setComposeEnv(env)
+        }}
+        onClose={() => setShowAdvancedOptions(false)}
       />
       {showSettings && (
         <SettingsModal
