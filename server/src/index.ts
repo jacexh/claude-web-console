@@ -3,6 +3,7 @@ import websocket from '@fastify/websocket'
 import fastifyStatic from '@fastify/static'
 import { SessionManager } from './session-manager.js'
 import { createWsHandler } from './ws-handler.js'
+import { registerHttpRoutes } from './http-routes.js'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,6 +27,7 @@ async function main(): Promise<void> {
   })
 
   const sessionManager = new SessionManager(log)
+  registerHttpRoutes(app, sessionManager)
   const wsHandler = createWsHandler(sessionManager, log)
 
   app.get('/ws', { websocket: true }, (socket) => {

@@ -669,6 +669,10 @@ export class SessionManager {
     }
   }
 
+  getSessionStatus(sessionId: string): 'idle' | 'running' | 'stopped' {
+    return this.sessionStatus.get(sessionId)
+  }
+
   async interruptSession(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId)
     if (!session) {
