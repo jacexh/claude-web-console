@@ -17,6 +17,8 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
+import { shouldBroadcastTurnStarted, type TurnState } from './turn-lifecycle.js'
+import { SessionStatusTracker } from './session-status.js'
 
 type PermissionResolver = {
   resolve: (approved: boolean, reason?: string, updatedPermissions?: import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[]) => void
@@ -147,7 +149,11 @@ export class SessionManager {
   private sessions = new Map<string, SDKSession>()
   private pendingPermissions = new Map<string, PermissionResolver>()
   private pendingElicitations = new Map<string, { resolve: (result: ElicitationResult) => void; sessionId: string }>()
-  private runningSessionIds = new Set<string>()
+  private sessionStatus = new SessionStatusTracker((sessionId, status) => {
+    this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
+      type: 'session_status', sessionId, status,
+    } as unknown as SDKMessage))
+  })
   private closedSessionIds = new Set<string>()
   private streamingSessionIds = new Set<string>()
   private sessionListeners = new Map<string, Set<SessionListener>>()
@@ -368,6 +374,7 @@ export class SessionManager {
     // Use a temporary ID, then remap when real sessionId arrives.
     const tempId = `pending-${Date.now()}`
     this.sessions.set(tempId, session)
+    this.sessionStatus.set(tempId, 'idle')
     this.sessionCwds.set(tempId, cwd)
     this.sessionCreationOptions.set(tempId, {
       model: options?.model,
@@ -425,6 +432,7 @@ export class SessionManager {
       while (true) {
         this.log.info({ sessionId: currentSessionId }, 'consumeStream: entering stream()')
         const query = session.stream()
+        const turnState: TurnState = { turnStarted: false }
         // Store query reference so control requests (setModel etc.) can use it
         try {
           const sid = session.sessionId
@@ -489,6 +497,7 @@ export class SessionManager {
             } else {
               this.log.info({ cost: (msgAny as Record<string, unknown>).total_cost_usd }, 'Turn complete')
             }
+            this.sessionStatus.set(currentSessionId, 'idle')
           }
 
           let sessionId: string
@@ -514,6 +523,9 @@ export class SessionManager {
             if (listeners) { this.sessionListeners.delete(tempId); this.sessionListeners.set(sessionId, listeners) }
             this.streamingSessionIds.delete(tempId)
             this.streamingSessionIds.add(sessionId)
+            const prevStatus = this.sessionStatus.get(tempId)
+            this.sessionStatus.delete(tempId)
+            if (prevStatus) this.sessionStatus.set(sessionId, prevStatus)
             const q = this.activeQueries.get(tempId)
             if (q) { this.activeQueries.delete(tempId); this.activeQueries.set(sessionId, q) }
             this.pendingRemaps.delete(tempId)
@@ -525,7 +537,10 @@ export class SessionManager {
             } as unknown as SDKMessage))
           }
 
-          this.runningSessionIds.add(sessionId)
+          // Broadcast turn_started once per turn, before the first SDK message
+          if (shouldBroadcastTurnStarted(turnState)) {
+            this.sessionStatus.set(sessionId, 'running')
+          }
           this.broadcast(sessionId, (l) => l.onMessage(sessionId, msg))
         }
         this.log.info({ sessionId: currentSessionId }, 'consumeStream: stream() ended (turn complete)')
@@ -544,12 +559,12 @@ export class SessionManager {
     } finally {
       try {
         const sessionId = session.sessionId
-        this.runningSessionIds.delete(sessionId)
+        this.sessionStatus.set(sessionId, 'stopped')
         this.streamingSessionIds.delete(sessionId)
         this.activeQueries.delete(sessionId)
         // Clean up stale session object if stream ended unexpectedly (not via explicit closeSession).
         // Without this, the session stays in this.sessions (appears "already running")
-        // while runningSessionIds shows it as idle — making resume impossible.
+        // while sessionStatus shows it as idle — making resume impossible.
         if (this.sessions.has(sessionId) && !this.closedSessionIds.has(sessionId)) {
           const s = this.sessions.get(sessionId)
           this.sessions.delete(sessionId)
@@ -558,7 +573,7 @@ export class SessionManager {
         this.broadcast(sessionId, (l) => l.onEnd(sessionId))
       } catch {
         // Session never initialized — try with our tracked id
-        this.runningSessionIds.delete(currentSessionId)
+        this.sessionStatus.set(currentSessionId, 'stopped')
         this.streamingSessionIds.delete(currentSessionId)
         this.activeQueries.delete(currentSessionId)
         if (this.sessions.has(currentSessionId) && !this.closedSessionIds.has(currentSessionId)) {
@@ -642,10 +657,11 @@ export class SessionManager {
     } as unknown as SDKMessage))
   }
 
-  getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel } {
+  getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel; status: 'idle' | 'running' | 'stopped' } {
     return {
       model: this.sessionModels.get(sessionId),
       effortLevel: this.sessionEffortLevels.get(sessionId),
+      status: this.sessionStatus.get(sessionId),
     }
   }
 
@@ -743,7 +759,7 @@ export class SessionManager {
         sessionId: s.sessionId,
         summary: s.summary || 'Untitled',
         lastModified: s.lastModified,
-        status: this.runningSessionIds.has(s.sessionId) ? 'running' as const : 'idle' as const,
+        status: this.sessionStatus.get(s.sessionId),
         cwd: (s as Record<string, unknown>).cwd as string | undefined,
       }))
   }
@@ -814,7 +830,7 @@ export class SessionManager {
     const session = unstable_v2_resumeSession(sessionId, sessionOptions)
     try { process.chdir(originalCwd) } catch { /* ignore */ }
     this.sessions.set(sessionId, session)
-    this.runningSessionIds.add(sessionId)
+    this.sessionStatus.set(sessionId, 'idle')
 
     // Broadcast session_resumed to all listeners so other connections update their UI
     this.broadcast(sessionId, (l) => l.onMessage(sessionId, {
@@ -832,7 +848,7 @@ export class SessionManager {
       this.closedSessionIds.add(sessionId)
       session.close()
       this.sessions.delete(sessionId)
-      this.runningSessionIds.delete(sessionId)
+      this.sessionStatus.set(sessionId, 'stopped')
       this.streamingSessionIds.delete(sessionId)
 
       // Clean up idle timer
