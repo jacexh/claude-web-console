@@ -415,6 +415,15 @@ export class SessionManager {
     this.sessionCreationOptions.set(sessionId, opts)
     saveSessionOptions(sessionId, opts)
 
+    // Pre-populate model/effort so getSessionState() returns them immediately
+    // when the client sends switch_session (before consumeStream's init message)
+    if (options.model) {
+      this.sessionModels.set(sessionId, options.model)
+    }
+    if (options.effortLevel) {
+      this.sessionEffortLevels.set(sessionId, options.effortLevel)
+    }
+
     // Apply effort level after session is running (SDK doesn't accept it in SDKSessionOptions)
     if (options.effortLevel) {
       this.setEffortLevel(sessionId, options.effortLevel).catch((err) => {
