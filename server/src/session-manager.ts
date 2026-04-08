@@ -457,7 +457,7 @@ export class SessionManager {
   ): void {
     if (this.streamingSessionIds.has(sessionId)) return
     this.streamingSessionIds.add(sessionId)
-    this.consumeStreamWithRef({ current: sessionId }, session)
+    this.consumeStream({ current: sessionId }, session)
   }
 
   private async consumeStream(
