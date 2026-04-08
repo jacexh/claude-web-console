@@ -37,7 +37,7 @@ function reducer(state: SessionState, action: SessionAction): SessionState {
         sessionId: action.sessionId,
         summary: action.summary || 'New conversation',
         lastModified: Date.now(),
-        status: action.status ?? 'running',
+        status: action.status ?? 'idle',
         cwd: action.cwd,
       }
       return {

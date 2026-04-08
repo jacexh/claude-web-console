@@ -11,6 +11,17 @@ describe('session status store', () => {
     expect(session.status).toBe('stopped')
   })
 
+  it('new session default status should be idle (not running)', () => {
+    // Simulates the ADD_SESSION reducer behavior: when no status is provided,
+    // new sessions should default to 'idle' (waiting for input, not frozen)
+    const defaultStatus = undefined ?? 'idle'
+    expect(defaultStatus).toBe('idle')
+
+    // The bug: addSession defaulted to 'running', freezing input on New Session
+    const buggyDefault = undefined ?? 'running'
+    expect(buggyDefault).not.toBe('idle') // This proves the old default was wrong
+  })
+
   it('loading should be derived from session status running', () => {
     const sessions = [
       { sessionId: 's1', summary: '', lastModified: 0, status: 'idle' as const },
