@@ -1,16 +1,5 @@
 // === Client → Server Messages ===
 
-export interface CreateSessionMessage {
-  type: 'create_session'
-  options?: {
-    model?: string
-    cwd?: string
-    permissionMode?: string
-    executableArgs?: string[]
-    env?: Record<string, string>
-  }
-}
-
 export interface SendMessageMessage {
   type: 'send_message'
   sessionId: string
@@ -47,11 +36,6 @@ export interface GetDefaultCwdMessage {
 
 export interface ListCommandsMessage {
   type: 'list_commands'
-  sessionId: string
-}
-
-export interface ResumeSessionMessage {
-  type: 'resume_session'
   sessionId: string
 }
 
@@ -121,7 +105,6 @@ export interface GetSessionSettingsMessage {
 }
 
 export type ClientMessage =
-  | CreateSessionMessage
   | SendMessageMessage
   | SwitchSessionMessage
   | PermissionDecisionMessage
@@ -129,7 +112,6 @@ export type ClientMessage =
   | ListFilesMessage
   | GetDefaultCwdMessage
   | ListCommandsMessage
-  | ResumeSessionMessage
   | CloseSessionMessage
   | InterruptSessionMessage
   | StopTaskMessage
@@ -143,11 +125,6 @@ export type ClientMessage =
   | GetSessionSettingsMessage
 
 // === Server → Client Messages ===
-
-export interface SessionCreatedMessage {
-  type: 'session_created'
-  sessionId: string
-}
 
 export interface SessionListMessage {
   type: 'session_list'
@@ -310,7 +287,6 @@ export interface SessionStatusMessage {
 }
 
 export type ServerMessage =
-  | SessionCreatedMessage
   | SessionListMessage
   | SdkEventMessage
   | PermissionRequestMessage

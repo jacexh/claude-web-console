@@ -1,9 +1,4 @@
 // Mirror server types for WS protocol
-export interface CreateSessionMessage {
-  type: 'create_session'
-  options?: { model?: string; cwd?: string; permissionMode?: string; executableArgs?: string[] }
-}
-
 export interface SendMessageMessage {
   type: 'send_message'
   sessionId: string
@@ -52,11 +47,6 @@ export interface GetDefaultCwdMessage {
 
 export interface ListCommandsMessage {
   type: 'list_commands'
-  sessionId: string
-}
-
-export interface ResumeSessionMessage {
-  type: 'resume_session'
   sessionId: string
 }
 
@@ -126,7 +116,6 @@ export interface StopTaskMessage {
 }
 
 export type ClientMessage =
-  | CreateSessionMessage
   | SendMessageMessage
   | SwitchSessionMessage
   | PermissionDecisionMessage
@@ -134,7 +123,6 @@ export type ClientMessage =
   | ListFilesMessage
   | GetDefaultCwdMessage
   | ListCommandsMessage
-  | ResumeSessionMessage
   | CloseSessionMessage
   | InterruptSessionMessage
   | SetModelMessage
