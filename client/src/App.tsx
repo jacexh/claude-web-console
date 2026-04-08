@@ -1114,7 +1114,6 @@ export function App() {
     ? store.historyBySession[store.activeSessionId] ?? []
     : []
   const activeSession = store.sessions.find((s) => s.sessionId === store.activeSessionId)
-  const loading = activeSession?.status === 'running'
   const sessionStatus = store.activeSessionId
     ? statusBySession[store.activeSessionId] ?? {}
     : {}
@@ -1163,13 +1162,12 @@ export function App() {
           <ChatPanel
             messages={messages}
             history={history}
-            loading={loading}
+            sessionState={activeSession?.status ?? null}
             onSend={handleSendMessage}
             activeSessionSummary={activeSession?.summary}
             onPermissionDecision={handlePermissionDecision}
             onSelectArtifact={(toolName, input, result) => setArtifact({ toolName, input, result })}
             activeSessionId={store.activeSessionId}
-            sessionRunning={activeSession?.status !== 'stopped'}
             onResume={handleResumeSession}
             sessionStatus={sessionStatus}
             availableModels={availableModels}

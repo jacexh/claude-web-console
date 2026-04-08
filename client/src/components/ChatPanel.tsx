@@ -16,13 +16,13 @@ import type { ChatItem, ModelInfo, EffortLevel } from "../types"
 interface ChatPanelProps {
   messages: ChatItem[]
   history: ChatItem[]
-  loading: boolean
+  /** Three-state session lifecycle: idle (input enabled), running (input frozen), stopped (resume button) */
+  sessionState: 'idle' | 'running' | 'stopped' | null
   onSend: (content: string) => void
   onPermissionDecision: (toolUseId: string, approved: boolean, alwaysAllow?: boolean, updatedPermissions?: import('../types').PermissionSuggestion[]) => void
   onSelectArtifact: (toolName: string, input: Record<string, unknown>, result?: unknown) => void
   activeSessionId: string | null
   activeSessionSummary?: string
-  sessionRunning: boolean
   onResume: (sessionId: string) => void
   sessionStatus: SessionStatusInfo
   availableModels: ModelInfo[]
@@ -67,7 +67,11 @@ function getAtMention(text: string): { prefix: string; start: number } | null {
   return { prefix: match[1], start: match.index! }
 }
 
-export function ChatPanel({ messages, history, loading, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, sessionRunning, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, permissionMode, onSetPermissionMode, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
+export function ChatPanel({ messages, history, sessionState, onSend, onPermissionDecision, onSelectArtifact, activeSessionId, activeSessionSummary, onResume, sessionStatus, availableModels, onSetModel, fileList, onRequestFiles, commandList, onRename, onFork, effortLevel, onSetEffortLevel, permissionMode, onSetPermissionMode, subagentMessages, onGetSubagentMessages, onElicitationResponse, onOpenSettings, onInterrupt, onStopTask, composeModel, composeEffort, composePermissionMode, onComposeSetModel, onComposeSetEffort, onComposeSetPermissionMode, onComposeSend, onOpenAdvancedOptions, globalModels }: ChatPanelProps) {
+  // Derive booleans from the three-state lifecycle — single source of truth
+  const loading = sessionState === 'running'
+  const sessionRunning = sessionState !== 'stopped' && sessionState !== null
+
   const [input, setInput] = useState("")
   const [menuIndex, setMenuIndex] = useState(0)
   const [fileMenuIndex, setFileMenuIndex] = useState(0)
@@ -520,11 +524,11 @@ export function ChatPanel({ messages, history, loading, onSend, onPermissionDeci
           )}
           <span className={cn(
             "text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded",
-            sessionRunning
-              ? "bg-emerald-50 text-emerald-600"
+            sessionState === 'running' ? "bg-emerald-50 text-emerald-600"
+              : sessionState === 'idle' ? "bg-sky-50 text-sky-600"
               : "bg-slate-100 text-slate-400"
           )}>
-            {sessionRunning ? "running" : "idle"}
+            {sessionState ?? 'stopped'}
           </span>
           <span className="text-xs text-slate-400 font-mono bg-slate-50 px-2 py-0.5 rounded">
             ID: {activeSessionId}
