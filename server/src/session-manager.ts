@@ -17,7 +17,7 @@ import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { FastifyBaseLogger } from 'fastify'
 import type { SessionInfo, EffortLevel } from './types.js'
-import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, type TurnState } from './turn-lifecycle.js'
+import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, isTurnMessage, type TurnState } from './turn-lifecycle.js'
 import { SessionStatusTracker } from './session-status.js'
 
 type PermissionResolver = {
@@ -537,8 +537,8 @@ export class SessionManager {
             } as unknown as SDKMessage))
           }
 
-          // Set session status to running on first message of each turn
-          if (shouldBroadcastTurnStarted(turnState)) {
+          // Set session status to running on first turn message (skip system/init)
+          if (isTurnMessage(msgAny) && shouldBroadcastTurnStarted(turnState)) {
             this.sessionStatus.set(sessionId, 'running')
           }
           this.broadcast(sessionId, (l) => l.onMessage(sessionId, msg))

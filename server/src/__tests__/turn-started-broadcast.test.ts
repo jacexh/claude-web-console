@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest'
  * We extract the logic into a pure function so it can be tested
  * without mocking the full SessionManager.
  */
-import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd } from '../turn-lifecycle'
+import { shouldBroadcastTurnStarted, shouldResetToIdleOnStreamEnd, isTurnMessage } from '../turn-lifecycle'
 
 describe('shouldBroadcastTurnStarted', () => {
   it('returns true for the first message of a turn', () => {
@@ -63,5 +63,39 @@ describe('shouldResetToIdleOnStreamEnd', () => {
 
   it('returns false when current status is stopped (session closed)', () => {
     expect(shouldResetToIdleOnStreamEnd('stopped')).toBe(false)
+  })
+})
+
+describe('isTurnMessage', () => {
+  it('returns false for system/init (session initialization, not a turn)', () => {
+    expect(isTurnMessage({ type: 'system', subtype: 'init' })).toBe(false)
+  })
+
+  it('returns true for assistant messages (agent generating)', () => {
+    expect(isTurnMessage({ type: 'assistant' })).toBe(true)
+  })
+
+  it('returns true for user messages (tool results)', () => {
+    expect(isTurnMessage({ type: 'user' })).toBe(true)
+  })
+
+  it('returns true for result messages (turn complete)', () => {
+    expect(isTurnMessage({ type: 'result' })).toBe(true)
+  })
+
+  it('returns true for system/task_started', () => {
+    expect(isTurnMessage({ type: 'system', subtype: 'task_started' })).toBe(true)
+  })
+
+  it('returns true for system/task_progress', () => {
+    expect(isTurnMessage({ type: 'system', subtype: 'task_progress' })).toBe(true)
+  })
+
+  it('returns true for system/task_notification', () => {
+    expect(isTurnMessage({ type: 'system', subtype: 'task_notification' })).toBe(true)
+  })
+
+  it('returns false for system/init even with extra fields', () => {
+    expect(isTurnMessage({ type: 'system', subtype: 'init', model: 'claude-sonnet' })).toBe(false)
   })
 })
