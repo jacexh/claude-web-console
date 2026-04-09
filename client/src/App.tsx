@@ -770,6 +770,12 @@ export function App() {
           if (data.status) {
             store.setSessionStatus(sid, data.status as 'idle' | 'running' | 'stopped')
           }
+          if (data.executableArgs) {
+            setArgsBySession((prev) => ({ ...prev, [sid]: data.executableArgs as string[] }))
+          }
+          if (data.env) {
+            setEnvBySession((prev) => ({ ...prev, [sid]: data.env as Record<string, string> }))
+          }
           break
         }
 

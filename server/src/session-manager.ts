@@ -673,11 +673,14 @@ export class SessionManager {
     }
   }
 
-  getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel; status: 'idle' | 'running' | 'stopped' } {
+  getSessionState(sessionId: string): { model?: string; effortLevel?: EffortLevel; status: 'idle' | 'running' | 'stopped'; executableArgs?: string[]; env?: Record<string, string> } {
+    const opts = this.sessionCreationOptions.get(sessionId)
     return {
       model: this.sessionModels.get(sessionId),
       effortLevel: this.sessionEffortLevels.get(sessionId),
       status: this.sessionStatus.get(sessionId),
+      executableArgs: opts?.executableArgs,
+      env: opts?.env,
     }
   }
 

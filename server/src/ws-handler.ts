@@ -183,9 +183,9 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             // Load historical messages
             const history = await sessionManager.getHistory(msg.sessionId)
             send({ type: 'session_history', sessionId: msg.sessionId, messages: history })
-            // Send current session state (model, effort level) for multi-client sync
+            // Send current session state (model, effort level, args/env) for multi-client sync
             const state = sessionManager.getSessionState(msg.sessionId)
-            if (state.model || state.effortLevel) {
+            if (state.model || state.effortLevel || state.executableArgs || state.env) {
               send({ type: 'session_state', sessionId: msg.sessionId, ...state })
             }
             break

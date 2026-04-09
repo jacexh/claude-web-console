@@ -173,6 +173,8 @@ export interface SessionStateMessage {
   sessionId: string
   model?: string
   effortLevel?: EffortLevel
+  executableArgs?: string[]
+  env?: Record<string, string>
 }
 
 export interface ModelInfo {
