@@ -20,5 +20,6 @@ export function shouldResetToIdleOnStreamEnd(currentStatus: string): boolean {
  */
 export function isTurnMessage(msg: Record<string, unknown>): boolean {
   if (msg.type === 'system' && msg.subtype === 'init') return false
+  if (msg.type === 'user') return false
   return true
 }

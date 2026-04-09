@@ -78,4 +78,12 @@ describe('isTurnMessage', () => {
   it('returns true for result messages (turn complete)', () => {
     expect(isTurnMessage({ type: 'result' })).toBe(true)
   })
+
+  it('returns false for user messages (echo from control operations like setEnv/setModel)', () => {
+    expect(isTurnMessage({ type: 'user' })).toBe(false)
+  })
+
+  it('returns false for user messages with content (applyFlagSettings echo)', () => {
+    expect(isTurnMessage({ type: 'user', message: { role: 'user', content: 'env change' } })).toBe(false)
+  })
 })
