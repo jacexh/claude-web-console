@@ -93,7 +93,7 @@ function HtmlPreview({ html }: { html: string }) {
   }
 
   return (
-    <div className="relative group flex-1 flex flex-col min-h-0">
+    <div className="relative group">
       <Button
         variant="ghost"
         size="icon"
@@ -105,8 +105,8 @@ function HtmlPreview({ html }: { html: string }) {
       <iframe
         srcDoc={srcDoc}
         sandbox="allow-scripts"
-        className="w-full flex-1 min-h-[200px] rounded-md bg-white"
-        style={{ border: "none" }}
+        className="w-full rounded-md bg-white"
+        style={{ border: "none", height: "calc(100vh - 7rem)" }}
         title="HTML Preview"
       />
     </div>
@@ -327,27 +327,6 @@ function renderContent(artifact: Artifact) {
   )
 }
 
-/** Check if the artifact content will render as HTML preview */
-function isHtmlArtifact(artifact: Artifact): boolean {
-  const { toolName, input, result } = artifact
-  // Write tool with HTML content
-  if (toolName === "Write") {
-    const content = String(input.content ?? "")
-    const filePath = input.file_path as string | undefined
-    if (filePath && !(/\.(md|html?|diff|patch)$/i.test(filePath)) && langFromPath(filePath)) return false
-    return isHtml(content)
-  }
-  // Read/Glob/Grep with HTML result
-  if (toolName !== "Edit" && toolName !== "Bash" && result != null) {
-    const rawText = extractText(result)
-    const text = toolName === "Read" ? stripLineNumbers(rawText) : rawText
-    const filePath = input.file_path as string | undefined
-    if (filePath && !(/\.(md|html?|diff|patch)$/i.test(filePath)) && langFromPath(filePath)) return false
-    return isHtml(text)
-  }
-  return false
-}
-
 export const ArtifactPanel = memo(function ArtifactPanel({ artifact, onClose }: ArtifactPanelProps) {
   if (!artifact) {
     return (
@@ -356,8 +335,6 @@ export const ArtifactPanel = memo(function ArtifactPanel({ artifact, onClose }: 
       </div>
     )
   }
-
-  const htmlMode = isHtmlArtifact(artifact)
 
   return (
     <div className="w-full h-full bg-[#f4f5f5] flex flex-col border-l border-slate-200">
@@ -372,15 +349,9 @@ export const ArtifactPanel = memo(function ArtifactPanel({ artifact, onClose }: 
           <X className="h-4 w-4" />
         </Button>
       </div>
-      {htmlMode ? (
-        <div className="flex-1 flex flex-col min-h-0 p-4">
-          {renderContent(artifact)}
-        </div>
-      ) : (
-        <ScrollArea className="flex-1 p-4">
-          {renderContent(artifact)}
-        </ScrollArea>
-      )}
+      <ScrollArea className="flex-1 p-4">
+        {renderContent(artifact)}
+      </ScrollArea>
     </div>
   )
 })
