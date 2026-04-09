@@ -87,6 +87,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
   const editInputRef = useRef<HTMLInputElement>(null)
   const [showDirInput, setShowDirInput] = useState(false)
   const [dirPath, setDirPath] = useState("")
+  const [showSuggestions, setShowSuggestions] = useState(false)
   const dirInputRef = useRef<HTMLInputElement>(null)
 
   const [selectedProject, setSelectedProject] = useState<string | null>(() => {
@@ -244,7 +245,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
           {/* Toolbar: Open Directory + Jump to Session */}
           <div className="px-4 py-2 flex items-center gap-1.5 border-b border-slate-200 bg-slate-100">
             <button
-              onClick={() => { setDirPath(defaultCwd || ''); setShowDirInput(true); if (defaultCwd && onRequestFiles) onRequestFiles(defaultCwd + '/') }}
+              onClick={() => { setDirPath(defaultCwd || ''); setShowDirInput(true); setShowSuggestions(true); if (defaultCwd && onRequestFiles) onRequestFiles(defaultCwd + '/') }}
               className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-md transition-colors"
               title="Open directory"
             >
@@ -273,13 +274,22 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
                     value={dirPath}
                     onChange={(e) => {
                       setDirPath(e.target.value)
-                      // Send the raw input to server — listFiles handles both
-                      // exact directories ("/home/xuhao/") and partial names ("/home/xuhao/tal")
                       const v = e.target.value.trim()
-                      if (v && onRequestFiles) onRequestFiles(v)
+                      if (v && onRequestFiles) {
+                        onRequestFiles(v)
+                        setShowSuggestions(true)
+                      }
                     }}
+                    onBlur={() => {
+                      // Delay to allow suggestion click to register first
+                      setTimeout(() => setShowSuggestions(false), 150)
+                    }}
+                    onFocus={() => { if (dirPath.trim()) setShowSuggestions(true) }}
                     onKeyDown={(e) => {
-                      if (e.key === 'Escape') { setShowDirInput(false); setDirPath('') }
+                      if (e.key === 'Escape') {
+                        if (showSuggestions) { setShowSuggestions(false); e.stopPropagation(); return }
+                        setShowDirInput(false); setDirPath('')
+                      }
                       if (e.key === 'Enter') {
                         const trimmed = dirPath.trim()
                         if (trimmed) {
@@ -295,7 +305,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
                     className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                   {/* Autocomplete suggestions — server already filters by prefix */}
-                  {dirPath.trim() && (() => {
+                  {showSuggestions && dirPath.trim() && (() => {
                     const dirs = (fileList ?? []).filter(f => f.isDir)
                     if (dirs.length === 0) return null
                     return (
@@ -303,9 +313,11 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
                         {dirs.map((f) => (
                           <button
                             key={f.path}
+                            onMouseDown={(e) => e.preventDefault()}
                             onClick={() => {
                               setDirPath(f.path)
                               if (onRequestFiles) onRequestFiles(f.path)
+                              dirInputRef.current?.focus()
                             }}
                             className="w-full text-left px-3 py-1.5 text-xs font-mono text-slate-600 hover:bg-slate-50 flex items-center gap-2"
                           >

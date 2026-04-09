@@ -936,10 +936,11 @@ export function App() {
   )
 
   const handleOpenDirectory = useCallback((cwd: string) => {
-    // Navigate to compose view for this directory
+    // Ensure directory exists (creates if needed), then navigate to compose view
+    send({ type: 'ensure_directory', path: cwd })
     setCurrentProject(cwd)
     store.setActive(null)
-  }, [store])
+  }, [send, store])
 
   const handleSwitchSession = useCallback(
     (sessionId: string) => {

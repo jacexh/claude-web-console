@@ -109,6 +109,11 @@ export interface GetSessionSettingsMessage {
   sessionId: string
 }
 
+export interface EnsureDirectoryMessage {
+  type: 'ensure_directory'
+  path: string
+}
+
 export interface StopTaskMessage {
   type: 'stop_task'
   sessionId: string
@@ -134,6 +139,7 @@ export type ClientMessage =
   | ElicitationResponseMessage
   | GetSessionSettingsMessage
   | StopTaskMessage
+  | EnsureDirectoryMessage
 
 // Server → Client
 export interface SessionInfo {

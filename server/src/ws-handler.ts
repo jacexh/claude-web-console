@@ -1,6 +1,6 @@
 import type { WebSocket } from '@fastify/websocket'
 import { randomUUID } from 'node:crypto'
-import { readdir } from 'node:fs/promises'
+import { mkdir, readdir } from 'node:fs/promises'
 import { join, resolve, relative, basename, dirname } from 'node:path'
 import type { FastifyBaseLogger } from 'fastify'
 import type { SessionManager, PermissionMeta, SessionListener } from './session-manager.js'
@@ -237,6 +237,13 @@ export function createWsHandler(sessionManager: SessionManager, log: FastifyBase
             const prefix = msg.prefix || ''
             const files = await listFiles(cwd, prefix)
             send({ type: 'file_list', files })
+            break
+          }
+
+          case 'ensure_directory': {
+            const target = resolve(msg.path)
+            await mkdir(target, { recursive: true })
+            send({ type: 'directory_ensured', path: target })
             break
           }
 

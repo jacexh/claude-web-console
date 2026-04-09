@@ -116,6 +116,11 @@ export interface GetSessionSettingsMessage {
   sessionId: string
 }
 
+export interface EnsureDirectoryMessage {
+  type: 'ensure_directory'
+  path: string
+}
+
 export type ClientMessage =
   | SendMessageMessage
   | SwitchSessionMessage
@@ -137,6 +142,7 @@ export type ClientMessage =
   | SetPermissionModeMessage
   | SetEnvMessage
   | GetSessionSettingsMessage
+  | EnsureDirectoryMessage
 
 // === Server → Client Messages ===
 
@@ -294,6 +300,11 @@ export interface SessionStatusMessage {
   status: string
 }
 
+export interface DirectoryEnsuredMessage {
+  type: 'directory_ensured'
+  path: string
+}
+
 export type ServerMessage =
   | SessionListMessage
   | SdkEventMessage
@@ -316,3 +327,4 @@ export type ServerMessage =
   | ElicitationRequestMessage
   | SessionSettingsMessage
   | SessionStatusMessage
+  | DirectoryEnsuredMessage
