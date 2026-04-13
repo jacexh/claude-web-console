@@ -467,7 +467,7 @@ export function SessionList({ sessions, activeSessionId, onSelect, onOpenDirecto
                         <Pencil className="w-3 h-3" />
                       </button>
                     )}
-                    {!isEditing && session.status === 'running' && (
+                    {!isEditing && session.status !== 'stopped' && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onClose(session.sessionId) }}
                         className="absolute top-2 right-2 p-1 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
