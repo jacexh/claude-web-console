@@ -83,8 +83,8 @@ Options:
 ## Development
 
 ```bash
-git clone https://github.com/jacexh/talgent.git
-cd talgent/claude-web-console
+git clone https://github.com/jacexh/claude-web-console.git
+cd claude-web-console
 npm install
 npm run dev
 ```

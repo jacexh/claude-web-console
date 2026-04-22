@@ -1,0 +1,61 @@
+name: Auto-tag
+
+on:
+  push:
+    branches: [master, main]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: latest
+        run: |
+          tag=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$tag" ]; then
+            echo "version=0.0.0" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine bump type
+        id: bump
+        run: |
+          latest_tag=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$latest_tag" ]; then
+            range="HEAD"
+          else
+            range="${latest_tag}..HEAD"
+          fi
+
+          if git log "$range" --format='%s' | grep -qE '^feat(\(.+\))?!:|^[a-z]+(\(.+\))?!:|BREAKING CHANGE'; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif git log "$range" --format='%s' | grep -qE '^feat(\(.+\))?:'; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute next version
+        id: next
+        run: |
+          IFS='.' read -r major minor patch <<< "${{ steps.latest.outputs.version }}"
+          case "${{ steps.bump.outputs.type }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          echo "version=${major}.${minor}.${patch}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        run: |
+          tag="v${{ steps.next.outputs.version }}"
+          git tag "$tag"
+          git push origin "$tag"

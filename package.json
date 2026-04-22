@@ -45,13 +45,12 @@
   ],
   "author": "jacexh",
   "license": "MIT",
-  "homepage": "https://github.com/jacexh/talgent/tree/master/claude-web-console#readme",
+  "homepage": "https://github.com/jacexh/claude-web-console#readme",
   "bugs": {
-    "url": "https://github.com/jacexh/talgent/issues"
+    "url": "https://github.com/jacexh/claude-web-console/issues"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/jacexh/talgent.git",
-    "directory": "claude-web-console"
+    "url": "https://github.com/jacexh/claude-web-console.git"
   }
 }
